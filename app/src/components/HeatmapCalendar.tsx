@@ -30,6 +30,19 @@ function formatDay(dateStr: string) {
   }
 }
 
+function formatDDMMYYYY(dateStr: string) {
+  const d = new Date(dateStr)
+  if (!Number.isFinite(d.getTime())) return dateStr
+  // en-GB gives dd/mm/yyyy; convert to dd-mm-yyyy
+  return d
+    .toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
+    .replaceAll('/', '-')
+}
+
 function colorForScore(score0to100: number) {
   const s = clamp(score0to100, 0, 100)
   if (s <= 33) return { label: 'Low need', base: '#16a34a' } // green
@@ -107,23 +120,15 @@ export default function HeatmapCalendar({
       </div>
 
       <div className="heatmapGrid" role="grid" aria-label="14 day grid">
-        {normalized.map((d) => {
-          const tooltip = [
-            d.day.date,
-            `Score: ${d.score0to100}/100 (${d.label})`,
-            `Raw: ${d.raw}`,
-            `Pickups: ${d.day.pickups}`,
-            `Dropoffs: ${d.day.dropoffs}`,
-            `Cars to wash: ${d.day.carsToWash}`,
-            `Staff away: ${d.day.staffAway}`,
-          ].join('\n')
+        {normalized.map((d, idx) => {
+          const col = idx % 7
+          const preferLeft = col >= 5
 
           return (
             <div
               key={d.day.date}
               className="dayCard"
               role="gridcell"
-              title={tooltip}
             >
               <div className="dayBg" style={bgStyleForScore(d.score0to100)} />
               <div className="dayTopRow">
@@ -137,6 +142,32 @@ export default function HeatmapCalendar({
               </div>
               <p className="scoreBig">{d.score0to100}</p>
               <div className="scoreLabel">{d.label}</div>
+
+              <div
+                className={`dayHoverInfo${preferLeft ? ' dayHoverInfoLeft' : ''}`}
+                role="tooltip"
+                aria-hidden="true"
+              >
+                <div className="dayHoverInfoTitle">
+                  {formatDDMMYYYY(d.day.date)}
+                </div>
+                <div className="dayHoverInfoRow">
+                  <span>Pickups</span>
+                  <span>{d.day.pickups}</span>
+                </div>
+                <div className="dayHoverInfoRow">
+                  <span>Dropoffs</span>
+                  <span>{d.day.dropoffs}</span>
+                </div>
+                <div className="dayHoverInfoRow">
+                  <span>Cars to wash</span>
+                  <span>{d.day.carsToWash}</span>
+                </div>
+                <div className="dayHoverInfoRow">
+                  <span>Staff away</span>
+                  <span>{d.day.staffAway}</span>
+                </div>
+              </div>
             </div>
           )
         })}

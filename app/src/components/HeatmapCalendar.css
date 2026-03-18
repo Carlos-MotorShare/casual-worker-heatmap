@@ -39,7 +39,7 @@
   border-radius: 14px;
   padding: 12px 12px 10px;
   box-shadow: 0 1px 0 color-mix(in srgb, var(--bg-900), transparent 92%);
-  overflow: hidden;
+  overflow: visible;
   min-height: 92px;
   transition:
     transform 140ms ease,
@@ -51,6 +51,70 @@
   transform: translateY(-1px);
   box-shadow: var(--shadow);
   border-color: color-mix(in srgb, var(--border), var(--accent) 20%);
+  z-index: 5;
+}
+
+.dayHoverInfo {
+  position: absolute;
+  top: 14px;
+  left: calc(100% + 6px);
+  width: max-content;
+  min-width: 170px;
+  max-width: 220px;
+  padding: 10px 10px 9px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.72);
+  color: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  line-height: 1.25;
+  opacity: 0;
+  transform: translateY(2px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.dayHoverInfoLeft {
+  left: auto;
+  right: calc(100% + 6px);
+}
+
+.dayCard:hover .dayHoverInfo,
+.dayCard:focus-within .dayHoverInfo {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.dayHoverInfoTitle {
+  font-family: var(--mono);
+  font-size: 11px;
+  opacity: 0.9;
+  margin-bottom: 8px;
+}
+
+.dayHoverInfoRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.dayHoverInfoRow span:first-child {
+  opacity: 0.85;
+}
+
+@media (max-width: 720px) {
+  .dayHoverInfo {
+    left: 10px;
+    right: 10px;
+    top: calc(100% + 10px);
+    width: auto;
+    max-width: none;
+  }
 }
 
 .dayTopRow {
@@ -106,6 +170,7 @@
   inset: 0;
   z-index: -1;
   opacity: 0.95;
+  border-radius: 14px;
 }
 
 .legend {

@@ -71,3 +71,11 @@ export default defineConfig([
   },
 ])
 ```
+
+## Environment-aware API URL
+
+The frontend reads the backend base URL from `REACT_APP_API_URL` (defaults to `http://localhost:3001`).
+
+- **Local dev**: set in `app/.env`
+- **Vercel (frontend)**: set **`REACT_APP_API_URL`** in Vercel Environment Variables to your deployed backend base URL (for example `https://your-backend.vercel.app`).
+

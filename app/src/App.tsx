@@ -4,6 +4,22 @@ import HeatmapCalendar, {
   type StaffingDay,
 } from './components/HeatmapCalendar'
 
+const API_BASE_URL =
+  import.meta.env.REACT_APP_API_URL?.toString().trim() || 'http://localhost:3001'
+
+function formatGeneratedAt(value: string | null) {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (!Number.isFinite(d.getTime())) return value
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(d)
+}
+
 function App() {
   const mockDays = useMemo((): StaffingDay[] => {
     const today = new Date()
@@ -38,23 +54,18 @@ function App() {
 
   const [days, setDays] = useState<StaffingDay[] | null>(null)
   const [generatedAt, setGeneratedAt] = useState<string | null>(null)
+  const [liveStatus, setLiveStatus] = useState<
+    'connecting' | 'connected' | 'error'
+  >('connecting')
 
   useEffect(() => {
-    const controller = new AbortController()
+    const es = new EventSource(`${API_BASE_URL}/api/stream`)
 
-    async function load() {
+    const onConnected = () => setLiveStatus('connected')
+
+    const onData = (e: MessageEvent) => {
       try {
-        const res = await fetch('http://localhost:3001/api/data', {
-          signal: controller.signal,
-        })
-
-        if (!res.ok) {
-          console.log('No data yet')
-          // 404 = no data yet -> fall back to mock data
-          return
-        }
-
-        const json: unknown = await res.json()
+        const json: unknown = JSON.parse(String(e.data))
         if (json && typeof json === 'object') {
           const maybeGeneratedAt = (json as { generatedAt?: unknown }).generatedAt
           const maybeDays = (json as { days?: unknown }).days
@@ -67,13 +78,23 @@ function App() {
             setDays(maybeDays as StaffingDay[])
           }
         }
-      } catch (err) {
-        if ((err as { name?: string } | null)?.name === 'AbortError') return
+      } catch {
+        // ignore malformed events
       }
     }
 
-    void load()
-    return () => controller.abort()
+    es.addEventListener('connected', onConnected)
+    es.addEventListener('data', onData)
+    es.onerror = () => {
+      setLiveStatus('error')
+      // EventSource will auto-reconnect; we keep showing last known (or mock) data.
+    }
+
+    return () => {
+      es.removeEventListener('connected', onConnected)
+      es.removeEventListener('data', onData)
+      es.close()
+    }
   }, [])
 
   const effectiveDays = days && days.length ? days : mockDays
@@ -87,13 +108,34 @@ function App() {
             14‑day staffing pressure based on pickups, dropoffs, cars to wash, and
             staff away.
           </p>
-          {generatedAt ? (
-            <p style={{ marginTop: 8, fontSize: 14, opacity: 0.85 }}>
-              Data generated at <code>{generatedAt}</code>
-            </p>
-          ) : null}
         </div>
         <HeatmapCalendar days={effectiveDays} />
+        <div
+          style={{
+            width: 'min(980px, 100%)',
+            margin: '10px auto 0',
+            textAlign: 'left',
+            fontSize: 12,
+            opacity: 0.85,
+            display: 'grid',
+            gap: 6,
+          }}
+        >
+          <div>
+            Data last received:{' '}
+            <code>{formatGeneratedAt(generatedAt)}</code>
+          </div>
+          <div>
+            Status:{' '}
+            <code>
+              {liveStatus === 'connecting'
+                ? 'connecting'
+                : liveStatus === 'connected'
+                  ? 'connected'
+                  : 'disconnected'}
+            </code>
+          </div>
+        </div>
       </section>
     </>
   )
