@@ -1,0 +1,132 @@
+.heatmapWrap {
+  width: min(980px, 100%);
+  margin: 0 auto;
+  text-align: left;
+}
+
+.heatmapHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.heatmapHeader h2 {
+  margin: 0;
+}
+
+.heatmapHeaderMeta {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.heatmapGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .heatmapGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.dayCard {
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 0%);
+  border-radius: 14px;
+  padding: 12px 12px 10px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+  min-height: 92px;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    border-color 140ms ease;
+}
+
+.dayCard:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+  border-color: color-mix(in srgb, var(--border), var(--accent) 20%);
+}
+
+.dayTopRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+
+.dayDow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-h), var(--text) 35%);
+}
+
+.dayDate {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.scorePill {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(8px);
+}
+
+.scoreBig {
+  font-family: var(--heading);
+  font-weight: 600;
+  font-size: 26px;
+  letter-spacing: -0.5px;
+  color: var(--text-h);
+  margin: 0;
+}
+
+.scoreLabel {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.dayBg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.95;
+}
+
+.legend {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.legendSwatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
