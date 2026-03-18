@@ -40,7 +40,12 @@ function colorForScore(score0to100: number) {
 function bgStyleForScore(score0to100: number) {
   const { base } = colorForScore(score0to100)
   return {
-    background: `radial-gradient(120% 120% at 20% 20%, color-mix(in srgb, ${base}, white 65%) 0%, color-mix(in srgb, ${base}, white 82%) 42%, color-mix(in srgb, ${base}, white 92%) 100%)`,
+    background: [
+        `radial-gradient(140% 120% at 15% 15%, color-mix(in srgb, ${base}, white 37%) 0%, color-mix(in srgb, ${base}, white 50%) 40%, color-mix(in srgb, ${base}, white 60%) 100%)`,
+        `radial-gradient(100% 80% at 85% 85%, color-mix(in srgb, ${base}, black 8%) 0%, transparent 60%)`,
+        'linear-gradient(180deg, rgba(255,255,255,0.25), rgba(255,255,255,0.05))',
+        'linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.015))'
+      ].join(', ')
   } as const
 }
 
