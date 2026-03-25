@@ -1,16 +1,13 @@
+import { useCallback, useState } from 'react'
 import './HeatmapCalendar.css'
+import DayDetailModal from './DayDetailModal'
+import type { StaffingDay } from '../staffingDay'
 
-export type StaffingDay = {
-  date: string
-  pickups: number
-  dropoffs: number
-  carsToWash: number
-  staffAway: number
-}
+export type { StaffingDay } from '../staffingDay'
 
 export function calculateStaffingPressureScoreRaw(day: StaffingDay): number {
   return (
-    day.pickups * 2 + day.dropoffs * 1 + day.carsToWash * 2 + day.staffAway * 3
+    day.pickups * 2 + day.dropoffs * 1 + day.carsToWash * 2 + day.staffAwayWeighted * 3
   )
 }
 
@@ -28,19 +25,6 @@ function formatDay(dateStr: string) {
     dow: d.toLocaleDateString(undefined, { weekday: 'short' }),
     short: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
   }
-}
-
-function formatDDMMYYYY(dateStr: string) {
-  const d = new Date(dateStr)
-  if (!Number.isFinite(d.getTime())) return dateStr
-  // en-GB gives dd/mm/yyyy; convert to dd-mm-yyyy
-  return d
-    .toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
-    .replaceAll('/', '-')
 }
 
 function colorForScore(score0to100: number) {
@@ -71,6 +55,15 @@ export default function HeatmapCalendar({
   days,
   title = 'Staffing pressure (next 14 days)',
 }: HeatmapCalendarProps) {
+  const [modalDay, setModalDay] = useState<StaffingDay | null>(null)
+
+  const openDay = useCallback(
+    (day: StaffingDay) => {
+      setModalDay(day)
+    },
+    [],
+  )
+
   const window = days.slice(0, 14)
   const raws = window.map(calculateStaffingPressureScoreRaw)
   const minRaw = raws.length ? Math.min(...raws) : 0
@@ -97,6 +90,7 @@ export default function HeatmapCalendar({
 
   return (
     <section className="heatmapWrap" aria-label={title}>
+      <DayDetailModal day={modalDay} onClose={() => setModalDay(null)} />
       <div className="heatmapHeader">
         <h2>{title}</h2>
         <div className="legend" aria-label="Legend">
@@ -120,15 +114,22 @@ export default function HeatmapCalendar({
       </div>
 
       <div className="heatmapGrid" role="grid" aria-label="14 day grid">
-        {normalized.map((d, idx) => {
-          const col = idx % 7
-          const preferLeft = col >= 5
-
+        {normalized.map((d) => {
           return (
             <div
               key={d.day.date}
-              className="dayCard"
+              className="dayCard dayCard--interactive"
               role="gridcell"
+              tabIndex={0}
+              aria-haspopup="dialog"
+              aria-label={`${d.dow} ${d.shortDate}, staffing score ${d.score0to100}. Open details.`}
+              onClick={() => openDay(d.day)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  openDay(d.day)
+                }
+              }}
             >
               <div className="dayBg" style={bgStyleForScore(d.score0to100)} />
               <div className="dayTopRow">
@@ -142,32 +143,6 @@ export default function HeatmapCalendar({
               </div>
               <p className="scoreBig">{d.score0to100}</p>
               <div className="scoreLabel">{d.label}</div>
-
-              <div
-                className={`dayHoverInfo${preferLeft ? ' dayHoverInfoLeft' : ''}`}
-                role="tooltip"
-                aria-hidden="true"
-              >
-                <div className="dayHoverInfoTitle">
-                  {formatDDMMYYYY(d.day.date)}
-                </div>
-                <div className="dayHoverInfoRow">
-                  <span>Pickups</span>
-                  <span>{d.day.pickups}</span>
-                </div>
-                <div className="dayHoverInfoRow">
-                  <span>Dropoffs</span>
-                  <span>{d.day.dropoffs}</span>
-                </div>
-                <div className="dayHoverInfoRow">
-                  <span>Cars to wash</span>
-                  <span>{d.day.carsToWash}</span>
-                </div>
-                <div className="dayHoverInfoRow">
-                  <span>Staff away</span>
-                  <span>{d.day.staffAway}</span>
-                </div>
-              </div>
             </div>
           )
         })}

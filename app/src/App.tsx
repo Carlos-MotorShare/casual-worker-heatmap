@@ -3,6 +3,7 @@ import './App.css'
 import HeatmapCalendar, {
   type StaffingDay,
 } from './components/HeatmapCalendar'
+import PasswordGate from './components/PasswordGate'
 
 const API_BASE_URL =
   import.meta.env.REACT_APP_API_URL?.toString().trim() || 'http://localhost:3001'
@@ -38,6 +39,39 @@ function App() {
       // sample data: busier mid-week, lighter weekend
       const base = weekend ? 6 : 12
       const wave = Math.round(6 * Math.sin((i / 13) * Math.PI))
+      const staffAwayWeighted = Math.max(
+        0,
+        (weekend ? 1 : 2) + (i % 5 === 0 ? 1 : 0),
+      )
+
+      const pickupsList =
+        i === 0
+          ? [
+              { id: 'demo-p1', time: '9:30 AM' },
+              { id: 'demo-p2', time: '2:15 PM' },
+            ]
+          : i === 1
+            ? [{ id: 'demo-p1', time: '11:00 AM' }]
+            : i === 3
+              ? [
+                  { id: 'demo-p1', time: '10:30 AM' },
+                  { id: 'demo-p2', time: '10:30 AM' },
+                  { id: 'demo-p3', time: '10:30 AM' },
+                  { id: 'demo-p4', time: '10:30 AM' },
+                  { id: 'demo-p5', time: '10:30 AM' },
+                  { id: 'demo-p6', time: '3:00 PM' },
+                ]
+              : undefined
+
+      const dropoffsList =
+        i === 0
+          ? [
+              { id: 'demo-d1', time: '10:00 AM' },
+              { id: 'demo-d2', time: '4:30 PM' },
+            ]
+          : i === 2
+            ? [{ id: 'demo-d1', time: '1:45 PM' }]
+            : undefined
 
       return {
         date: toISODate(date),
@@ -47,7 +81,10 @@ function App() {
           Math.round(base * 0.7) + Math.round(wave * 0.6),
         ),
         carsToWash: Math.max(0, Math.round(base * 0.9) + (weekend ? -2 : 2)),
-        staffAway: Math.max(0, (weekend ? 1 : 2) + (i % 5 === 0 ? 1 : 0)),
+        staffAwayWeighted,
+        staffAwayCount: staffAwayWeighted,
+        pickupsList,
+        dropoffsList,
       }
     })
   }, [])
@@ -100,7 +137,7 @@ function App() {
   const effectiveDays = days && days.length ? days : mockDays
 
   return (
-    <>
+    <PasswordGate>
       <section id="center">
         <div>
           <h1>Casual worker heatmap</h1>
@@ -137,7 +174,7 @@ function App() {
           </div>
         </div>
       </section>
-    </>
+    </PasswordGate>
   )
 }
 
