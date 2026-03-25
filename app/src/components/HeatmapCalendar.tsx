@@ -34,6 +34,20 @@ function colorForScore(score0to100: number) {
   return { label: 'High need', base: '#ef4444' } // red
 }
 
+function todayIsoInNewZealand() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Pacific/Auckland',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date())
+
+  const y = parts.find((p) => p.type === 'year')?.value ?? '0000'
+  const m = parts.find((p) => p.type === 'month')?.value ?? '01'
+  const d = parts.find((p) => p.type === 'day')?.value ?? '01'
+  return `${y}-${m}-${d}`
+}
+
 function bgStyleForScore(score0to100: number) {
   const { base } = colorForScore(score0to100)
   return {
@@ -64,7 +78,8 @@ export default function HeatmapCalendar({
     [],
   )
 
-  const window = days.slice(0, 14)
+  const nzToday = todayIsoInNewZealand()
+  const window = days.filter((day) => day.date >= nzToday).slice(0, 14)
   const raws = window.map(calculateStaffingPressureScoreRaw)
   const minRaw = raws.length ? Math.min(...raws) : 0
   const maxRaw = raws.length ? Math.max(...raws) : 0
@@ -137,8 +152,9 @@ export default function HeatmapCalendar({
                   <div className="dayDow">{d.dow}</div>
                   <div className="dayDate">{d.shortDate}</div>
                 </div>
-                <div className="scorePill" aria-label="Staffing score">
-                  {d.score0to100}
+                <div className="carsBadge" aria-label="Cars to wash">
+                  <span className="carsBadgeLabel">Cars to wash</span>
+                  <span className="carsBadgeValue">{d.day.carsToWash}</span>
                 </div>
               </div>
               <p className="scoreBig">{d.score0to100}</p>

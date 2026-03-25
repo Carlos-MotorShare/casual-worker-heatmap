@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Ring } from 'ldrs/react'
+import 'ldrs/react/Ring.css'
 
 type PasswordGateProps = {
   children: ReactNode
@@ -17,6 +19,7 @@ function getExpectedPassword(): string {
 export default function PasswordGate({ children }: PasswordGateProps) {
   const expectedPassword = useMemo(() => getExpectedPassword(), [])
   const [isAuthed, setIsAuthed] = useState(false)
+  const [showLoader, setShowLoader] = useState(false)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
@@ -25,7 +28,11 @@ export default function PasswordGate({ children }: PasswordGateProps) {
 
   useEffect(() => {
     try {
-      setIsAuthed(localStorage.getItem(AUTH_KEY) === '1')
+      const authed = localStorage.getItem(AUTH_KEY) === '1'
+      setIsAuthed(authed)
+      if (authed) {
+        setShowLoader(true)
+      }
     } catch {
       setIsAuthed(false)
     }
@@ -43,6 +50,7 @@ export default function PasswordGate({ children }: PasswordGateProps) {
       try {
         localStorage.setItem(AUTH_KEY, '1')
       } catch {}
+      setShowLoader(true)
       setIsAuthed(true)
       return
     }
@@ -56,7 +64,45 @@ export default function PasswordGate({ children }: PasswordGateProps) {
     if (error) setError(null)
   }
 
-  if (isAuthed) return <>{children}</>
+  useEffect(() => {
+    if (!showLoader) return
+    const t = window.setTimeout(() => setShowLoader(false), 1000)
+    return () => window.clearTimeout(t)
+  }, [showLoader])
+
+  if (isAuthed) {
+    return (
+      <>
+        <div style={{ filter: showLoader ? 'blur(10px)' : 'none', transition: 'filter 180ms ease' }}>
+          {children}
+        </div>
+        {showLoader ? (
+          <div
+            role="presentation"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 999999,
+              background: 'color-mix(in srgb, var(--bg-900), transparent 55%)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+            }}
+          >
+            <Ring
+              size="40"
+              stroke="6"
+              bgOpacity="0"
+              speed="1.6"
+              color="white"
+            />
+          </div>
+        ) : null}
+      </>
+    )
+  }
 
   return (
     <div

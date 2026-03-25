@@ -4,6 +4,7 @@ import HeatmapCalendar, {
   type StaffingDay,
 } from './components/HeatmapCalendar'
 import PasswordGate from './components/PasswordGate'
+import darkBG from './assets/darkBG.png';
 
 const API_BASE_URL =
   import.meta.env.REACT_APP_API_URL?.toString().trim() || 'http://localhost:3001'
@@ -139,13 +140,32 @@ function App() {
   return (
     <PasswordGate>
       <section id="center">
+      <div
+          style={{
+            width: 'min(980px, 100%)',
+            boxShadow: 'var(--shadow)',
+            overflow: 'hidden',
+          }}
+          aria-label="Roster image"
+        >
+          <img
+            src={darkBG} 
+            alt=""
+            style={{ width: '40%', height: 'auto', display: 'block', opacity: 1, margin: '0 auto' }}
+            onError={(e) => {
+              ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+            }}
+          />
+        </div>
+
         <div>
-          <h1>Casual worker heatmap</h1>
+          <h1>Casual Worker Roster</h1>
           <p style={{ marginTop: 8 }}>
             14‑day staffing pressure based on pickups, dropoffs, cars to wash, and
             staff away.
           </p>
         </div>
+
         <HeatmapCalendar days={effectiveDays} />
         <div
           style={{
