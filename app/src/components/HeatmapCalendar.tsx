@@ -1,15 +1,14 @@
 import { useCallback, useState } from 'react'
 import './HeatmapCalendar.css'
 import DayDetailModal from './DayDetailModal'
-import type { StaffingDay } from '../staffingDay'
+import { summarizeRosterForDay } from '../lib/rosterHelpers'
+import type { RosterRow, User } from '../lib/rosterTypes'
+import {
+  calculateStaffingPressureScoreRaw,
+  type StaffingDay,
+} from '../staffingDay'
 
 export type { StaffingDay } from '../staffingDay'
-
-export function calculateStaffingPressureScoreRaw(day: StaffingDay): number {
-  return (
-    day.pickups * 2 + day.dropoffs * 1 + day.carsToWash * 2 + day.staffAwayWeighted * 3
-  )
-}
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n))
@@ -63,11 +62,21 @@ function bgStyleForScore(score0to100: number) {
 export type HeatmapCalendarProps = {
   days: StaffingDay[]
   title?: string
+  rosterByDate?: Record<string, RosterRow[]>
+  canSchedule?: boolean
+  onScheduleRequest?: (day: StaffingDay) => void
+  currentUser?: User | null
+  onRosterBlockDeleted?: () => void
 }
 
 export default function HeatmapCalendar({
   days,
-  title = 'Staffing pressure (next 14 days)',
+  title = 'Staffing pressure',
+  rosterByDate,
+  canSchedule = false,
+  onScheduleRequest,
+  currentUser = null,
+  onRosterBlockDeleted,
 }: HeatmapCalendarProps) {
   const [modalDay, setModalDay] = useState<StaffingDay | null>(null)
 
@@ -92,6 +101,9 @@ export default function HeatmapCalendar({
     const scoreInt = Math.round(score)
     const { dow, short } = formatDay(day.date)
     const { label } = colorForScore(scoreInt)
+    const rosterSummary = summarizeRosterForDay(
+      rosterByDate?.[day.date] ?? [],
+    )
 
     return {
       day,
@@ -100,12 +112,26 @@ export default function HeatmapCalendar({
       label,
       dow,
       shortDate: short,
+      rosterSummary,
     }
   })
 
   return (
     <section className="heatmapWrap" aria-label={title}>
-      <DayDetailModal day={modalDay} onClose={() => setModalDay(null)} />
+      <DayDetailModal
+        day={modalDay}
+        onClose={() => setModalDay(null)}
+        rosterRows={
+          modalDay ? rosterByDate?.[modalDay.date] ?? [] : []
+        }
+        canSchedule={canSchedule}
+        currentUser={currentUser}
+        onRosterBlockDeleted={onRosterBlockDeleted}
+        onScheduleClick={() => {
+          if (!modalDay) return
+          onScheduleRequest?.(modalDay)
+        }}
+      />
       <div className="heatmapHeader">
         <h2>{title}</h2>
         <div className="legend" aria-label="Legend">
@@ -152,9 +178,25 @@ export default function HeatmapCalendar({
                   <div className="dayDow">{d.dow}</div>
                   <div className="dayDate">{d.shortDate}</div>
                 </div>
-                <div className="carsBadge" aria-label="Cars to wash">
-                  <span className="carsBadgeLabel">Cars to wash</span>
-                  <span className="carsBadgeValue">{d.day.carsToWash}</span>
+                <div className="dayTopRowAside">
+                  <div className="carsBadge" aria-label="Cars to wash">
+                    <span className="carsBadgeValue" role="img" aria-label="soap">
+                      🧼 {d.day.carsToWash}
+                    </span>
+                  </div>
+                  {d.rosterSummary.count > 0 ? (
+                    <div
+                      className="dayRosterBubble"
+                      aria-label={`Roster: ${d.rosterSummary.usernames.join(', ')}`}
+                    >
+                      <span className="dayRosterBubbleTag">Roster</span>
+                      <span className="dayRosterBubbleNames">
+                        {d.rosterSummary.usernames.length <= 3
+                          ? d.rosterSummary.usernames.join(', ')
+                          : `${d.rosterSummary.usernames.slice(0, 2).join(', ')} +${d.rosterSummary.count - 2}`}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <p className="scoreBig">{d.score0to100}</p>

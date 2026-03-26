@@ -8,6 +8,11 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
+/** Quick check that this process is the current API (use if /api/auth/login returns 404). */
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({ ok: true });
+});
+
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
@@ -42,8 +47,8 @@ function broadcast(event, data) {
  *   date: string,
  *   pickups: number,
  *   dropoffs: number,
- *   pickupsList: Array<{ id: string, time: string }>,
- *   dropoffsList: Array<{ id: string, time: string }>,
+ *   pickupsList: Array<{ id: string, time: string, vehicle?: string }>,
+ *   dropoffsList: Array<{ id: string, time: string, vehicle?: string }>,
  *   carsToWash: number,
  *   staffAwayWeighted: number,
  *   staffAwayCount: number
@@ -67,6 +72,76 @@ function broadcast(event, data) {
  */
 
 /**
+ * @param {unknown} raw
+ * @returns {{ id: string, time: string, vehicle?: string } | null}
+ */
+function normalizeTripListItem(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const o = /** @type {Record<string, unknown>} */ (raw);
+  if (typeof o.id !== "string" || typeof o.time !== "string") return null;
+  if (o.vehicle !== undefined && typeof o.vehicle !== "string") return null;
+  /** @type {{ id: string, time: string, vehicle?: string }} */
+  const row = { id: o.id, time: o.time };
+  if (typeof o.vehicle === "string") {
+    row.vehicle = o.vehicle;
+  }
+  return row;
+}
+
+/**
+ * @param {unknown} arr
+ * @returns {Array<{ id: string, time: string, vehicle?: string }>}
+ */
+function normalizeTripList(arr) {
+  if (!Array.isArray(arr)) return [];
+  const out = [];
+  for (const item of arr) {
+    const row = normalizeTripListItem(item);
+    if (row) out.push(row);
+  }
+  return out;
+}
+
+/**
+ * First finite numeric value among record keys (camelCase then snake_case).
+ * Avoids `Number(x) || 0` swallowing 0 and supports Airtable/SQL `cars_to_wash` vs `carsToWash`.
+ * @param {Record<string, unknown>} rec
+ * @param {string[]} keys
+ * @returns {number}
+ */
+function readDayNumeric(rec, keys) {
+  for (const key of keys) {
+    const v = rec[key];
+    if (v === undefined || v === null || typeof v === "boolean") continue;
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string" && v.trim() !== "") {
+      const n = Number(v);
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return 0;
+}
+
+/**
+ * True if at least one key exists on the record and holds a finite number (0 is valid).
+ * @param {Record<string, unknown>} rec
+ * @param {string[]} keys
+ */
+function hasReadableDayNumber(rec, keys) {
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(rec, key)) continue;
+    const v = rec[key];
+    if (v === null || typeof v === "boolean") continue;
+    if (typeof v === "number" && Number.isFinite(v)) return true;
+    if (typeof v === "string" && v.trim() !== "") {
+      const n = Number(v);
+      if (Number.isFinite(n)) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * @param {unknown} day
  * @returns {StaffingDayEntry}
  */
@@ -84,39 +159,16 @@ function normalizeDay(day) {
     };
   }
   const d = /** @type {Record<string, unknown>} */ (day);
-  const pickupsList = Array.isArray(d.pickupsList) ? d.pickupsList : [];
-  const dropoffsList = Array.isArray(d.dropoffsList) ? d.dropoffsList : [];
   return {
     date: typeof d.date === "string" ? d.date : "",
-    pickups: typeof d.pickups === "number" ? d.pickups : Number(d.pickups) || 0,
-    dropoffs: typeof d.dropoffs === "number" ? d.dropoffs : Number(d.dropoffs) || 0,
-    pickupsList: /** @type {StaffingDayEntry["pickupsList"]} */ (
-      pickupsList.filter(
-        (p) =>
-          p &&
-          typeof p === "object" &&
-          typeof /** @type {{ id?: unknown }} */ (p).id === "string" &&
-          typeof /** @type {{ time?: unknown }} */ (p).time === "string"
-      )
-    ),
-    dropoffsList: /** @type {StaffingDayEntry["dropoffsList"]} */ (
-      dropoffsList.filter(
-        (x) =>
-          x &&
-          typeof x === "object" &&
-          typeof /** @type {{ id?: unknown }} */ (x).id === "string" &&
-          typeof /** @type {{ time?: unknown }} */ (x).time === "string"
-      )
-    ),
-    carsToWash: typeof d.carsToWash === "number" ? d.carsToWash : Number(d.carsToWash) || 0,
-    staffAwayWeighted:
-      typeof d.staffAwayWeighted === "number"
-        ? d.staffAwayWeighted
-        : Number(d.staffAwayWeighted) || 0,
-    staffAwayCount:
-      typeof d.staffAwayCount === "number"
-        ? d.staffAwayCount
-        : Number(d.staffAwayCount) || 0,
+    pickups: readDayNumeric(d, ["pickups"]),
+    dropoffs: readDayNumeric(d, ["dropoffs"]),
+    pickupsList: normalizeTripList(d.pickupsList),
+    dropoffsList: normalizeTripList(d.dropoffsList),
+    /* Prefer snake_case when both exist (often the live DB field); camel alone still works. */
+    carsToWash: readDayNumeric(d, ["cars_to_wash", "carsToWash"]),
+    staffAwayWeighted: readDayNumeric(d, ["staff_away_weighted", "staffAwayWeighted"]),
+    staffAwayCount: readDayNumeric(d, ["staff_away_count", "staffAwayCount"]),
   };
 }
 
@@ -149,33 +201,40 @@ function isValidDayEntry(value) {
     console.error("[validation] day is not an object:", value);
     return false;
   }
-  const day = value;
+  const day = /** @type {Record<string, unknown>} */ (value);
 
   if (typeof day.date !== "string") {
     console.error("[validation] invalid day.date (expected string):", day.date);
     return false;
   }
-  if (typeof day.pickups !== "number") {
-    console.error("[validation] invalid day.pickups (expected number):", day.pickups);
+  if (!hasReadableDayNumber(day, ["pickups"])) {
+    console.error("[validation] invalid day.pickups (expected finite number):", day.pickups);
     return false;
   }
-  if (typeof day.dropoffs !== "number") {
-    console.error("[validation] invalid day.dropoffs (expected number):", day.dropoffs);
+  if (!hasReadableDayNumber(day, ["dropoffs"])) {
+    console.error("[validation] invalid day.dropoffs (expected finite number):", day.dropoffs);
     return false;
   }
-  if (typeof day.carsToWash !== "number") {
-    console.error("[validation] invalid day.carsToWash (expected number):", day.carsToWash);
-    return false;
-  }
-  if (typeof day.staffAwayWeighted !== "number") {
+  if (!hasReadableDayNumber(day, ["carsToWash", "cars_to_wash"])) {
     console.error(
-      "[validation] invalid day.staffAwayWeighted (expected number):",
+      "[validation] invalid day.carsToWash / cars_to_wash (expected finite number):",
+      day.carsToWash,
+      day.cars_to_wash
+    );
+    return false;
+  }
+  if (!hasReadableDayNumber(day, ["staffAwayWeighted", "staff_away_weighted"])) {
+    console.error(
+      "[validation] invalid day.staffAwayWeighted (expected finite number):",
       day.staffAwayWeighted
     );
     return false;
   }
-  if (typeof day.staffAwayCount !== "number") {
-    console.error("[validation] invalid day.staffAwayCount (expected number):", day.staffAwayCount);
+  if (!hasReadableDayNumber(day, ["staffAwayCount", "staff_away_count"])) {
+    console.error(
+      "[validation] invalid day.staffAwayCount (expected finite number):",
+      day.staffAwayCount
+    );
     return false;
   }
   if (!Array.isArray(day.pickupsList)) {
@@ -200,6 +259,10 @@ function isValidDayEntry(value) {
       console.error(`[validation] invalid pickupsList[${idx}].time (expected string):`, p.time);
       return false;
     }
+    if (p.vehicle !== undefined && typeof p.vehicle !== "string") {
+      console.error(`[validation] invalid pickupsList[${idx}].vehicle (expected string):`, p.vehicle);
+      return false;
+    }
   }
   for (const [idx, d] of day.dropoffsList.entries()) {
     if (!d || typeof d !== "object") {
@@ -212,6 +275,10 @@ function isValidDayEntry(value) {
     }
     if (typeof d.time !== "string") {
       console.error(`[validation] invalid dropoffsList[${idx}].time (expected string):`, d.time);
+      return false;
+    }
+    if (d.vehicle !== undefined && typeof d.vehicle !== "string") {
+      console.error(`[validation] invalid dropoffsList[${idx}].vehicle (expected string):`, d.vehicle);
       return false;
     }
   }
@@ -355,6 +422,207 @@ app.get("/api/data", async (_req, res) => {
   } catch (error) {
     console.error("[data] unexpected error while fetching payload:", error);
     return res.status(500).json({ error: "Failed to fetch data." });
+  }
+});
+
+function isIsoDateString(value) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+/**
+ * @param {unknown} t
+ * @returns {string}
+ */
+function normalizePgTimeString(t) {
+  if (typeof t === "string") {
+    const m = t.match(/^(\d{2}):(\d{2}):(\d{2})/);
+    if (m) return `${m[1]}:${m[2]}:${m[3]}`;
+  }
+  return String(t);
+}
+
+/**
+ * Normalize Supabase date/date-like values to YYYY-MM-DD for frontend keying.
+ * @param {unknown} value
+ * @returns {string}
+ */
+function normalizePgDateString(value) {
+  if (typeof value === "string") {
+    const m = value.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (m) return m[1];
+  }
+  return String(value);
+}
+
+app.post("/api/auth/login", async (req, res) => {
+  const password = typeof req.body?.password === "string" ? req.body.password : "";
+  if (!password) {
+    return res.status(400).json({ error: "Password required." });
+  }
+  try {
+    const { data, error } = await supabase.rpc("login_with_password", {
+      payload: { password },
+    });
+    if (error) {
+      console.error("[auth] login_with_password RPC failed:", error);
+      return res.status(500).json({ error: "Login failed." });
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row || typeof row.id !== "string") {
+      return res.status(401).json({ error: "Incorrect password" });
+    }
+    return res.status(200).json({
+      user: {
+        id: row.id,
+        username: row.username,
+        colour: typeof row.colour === "string" ? row.colour : null,
+        admin: Boolean(row.admin),
+      },
+    });
+  } catch (e) {
+    console.error("[auth] unexpected error:", e);
+    return res.status(500).json({ error: "Login failed." });
+  }
+});
+
+app.get("/api/rosters", async (req, res) => {
+  const start = req.query.start;
+  const end = req.query.end;
+  if (!isIsoDateString(start) || !isIsoDateString(end)) {
+    return res.status(400).json({ error: "Query start and end are required (YYYY-MM-DD)." });
+  }
+  try {
+    const { data, error } = await supabase.rpc("rosters_for_range", {
+      payload: { start, end },
+    });
+    if (error) {
+      console.error("[rosters] rosters_for_range RPC failed:", error);
+      if (error.code === "PGRST202") {
+        console.error(
+          "[rosters] Hint: run supabase/migrations/20260326160000_rosters_for_range_ensure.sql in the Supabase SQL editor, then wait ~30s or redeploy.",
+        );
+      }
+      return res.status(500).json({ error: "Failed to fetch rosters." });
+    }
+    const list = Array.isArray(data) ? data : [];
+    const rows = list.map((r) => ({
+      blockId: r.block_id,
+      rosterId: r.roster_id,
+      userId: r.user_id,
+      date: normalizePgDateString(r.roster_date),
+      username: r.username,
+      colour: typeof r.colour === "string" ? r.colour : r.colour ?? null,
+      startTime: normalizePgTimeString(r.start_time),
+      endTime: normalizePgTimeString(r.end_time),
+    }));
+    return res.status(200).json({ rows });
+  } catch (e) {
+    console.error("[rosters] unexpected error:", e);
+    return res.status(500).json({ error: "Failed to fetch rosters." });
+  }
+});
+
+app.post("/api/rosters", async (req, res) => {
+  const body = req.body && typeof req.body === "object" ? req.body : {};
+  const userId = typeof body.userId === "string" ? body.userId : "";
+  const date = typeof body.date === "string" ? body.date : "";
+  const blocks = /** @type {unknown} */ (body.blocks ?? []);
+
+  if (!userId || !isIsoDateString(date)) {
+    return res.status(400).json({ error: "Valid userId and date (YYYY-MM-DD) are required." });
+  }
+  if (!Array.isArray(blocks) || blocks.length === 0) {
+    return res.status(400).json({ error: "blocks must be a non-empty array." });
+  }
+
+  const normalized = [];
+  for (const b of blocks) {
+    if (!b || typeof b !== "object") {
+      return res.status(400).json({ error: "Invalid block." });
+    }
+    const startTime = /** @type {{ startTime?: unknown }} */ (b).startTime;
+    const endTime = /** @type {{ endTime?: unknown }} */ (b).endTime;
+    if (typeof startTime !== "string" || typeof endTime !== "string") {
+      return res.status(400).json({ error: "Each block needs startTime and endTime (HH:MM:SS)." });
+    }
+    normalized.push({ startTime, endTime });
+  }
+
+  try {
+    const { error: deleteError } = await supabase
+      .from("rosters")
+      .delete()
+      .eq("user_id", userId)
+      .eq("date", date);
+
+    if (deleteError) {
+      console.error("[rosters] delete roster failed:", deleteError);
+      return res.status(500).json({ error: "Failed to save roster." });
+    }
+
+    const { data: rosterRow, error: rosterInsertError } = await supabase
+      .from("rosters")
+      .insert({ user_id: userId, date })
+      .select("id")
+      .single();
+
+    if (rosterInsertError || !rosterRow?.id) {
+      console.error("[rosters] insert roster failed:", rosterInsertError);
+      return res.status(500).json({ error: "Failed to save roster." });
+    }
+
+    const rosterId = rosterRow.id;
+    const blockRows = normalized.map((b) => ({
+      roster_id: rosterId,
+      start_time: b.startTime,
+      end_time: b.endTime,
+    }));
+
+    const { error: blocksError } = await supabase.from("roster_blocks").insert(blockRows);
+
+    if (blocksError) {
+      console.error("[rosters] insert roster_blocks failed:", blocksError);
+      await supabase.from("rosters").delete().eq("id", rosterId);
+      return res.status(500).json({ error: "Failed to save roster." });
+    }
+
+    return res.status(200).json({ ok: true, rosterId });
+  } catch (e) {
+    console.error("[rosters] unexpected error:", e);
+    return res.status(500).json({ error: "Failed to save roster." });
+  }
+});
+
+app.post("/api/rosters/delete-block", async (req, res) => {
+  const body = req.body && typeof req.body === "object" ? req.body : {};
+  const blockId = typeof body.blockId === "string" ? body.blockId : "";
+  const actorUserId = typeof body.actorUserId === "string" ? body.actorUserId : "";
+  if (!blockId || !actorUserId) {
+    return res.status(400).json({ error: "blockId and actorUserId are required." });
+  }
+  try {
+    const { data, error } = await supabase.rpc("delete_roster_block", {
+      payload: { blockId, actorUserId },
+    });
+    if (error) {
+      console.error("[rosters] delete_roster_block RPC failed:", error);
+      return res.status(500).json({ error: "Failed to delete block." });
+    }
+    const result = data && typeof data === "object" ? /** @type {Record<string, unknown>} */ (data) : {};
+    if (result.ok !== true) {
+      const err = typeof result.error === "string" ? result.error : "";
+      if (err === "not_found") {
+        return res.status(404).json({ error: "That shift block was not found." });
+      }
+      if (err === "forbidden") {
+        return res.status(403).json({ error: "You cannot remove this shift." });
+      }
+      return res.status(400).json({ error: "Could not delete this block." });
+    }
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error("[rosters] delete-block unexpected error:", e);
+    return res.status(500).json({ error: "Failed to delete block." });
   }
 });
 

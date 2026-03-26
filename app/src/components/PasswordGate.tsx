@@ -1,25 +1,17 @@
 import type { ReactNode } from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Ring } from 'ldrs/react'
-import 'ldrs/react/Ring.css'
+import { useEffect, useRef, useState } from 'react'
+import { useUserStore } from '../stores/useUserStore'
 
 type PasswordGateProps = {
   children: ReactNode
 }
 
-const AUTH_KEY = 'casual_worker_schedule_authed'
-
-function getExpectedPassword(): string {
-  return (
-    import.meta.env.REACT_APP_APP_PASSWORD?.toString().trim() ||
-    'motorshare123'
-  )
-}
+const API_BASE =
+  import.meta.env.REACT_APP_API_URL?.toString().trim() || 'http://localhost:3001'
 
 export default function PasswordGate({ children }: PasswordGateProps) {
-  const expectedPassword = useMemo(() => getExpectedPassword(), [])
-  const [isAuthed, setIsAuthed] = useState(false)
-  const [showLoader, setShowLoader] = useState(false)
+  const user = useUserStore((s) => s.user)
+  const setUser = useUserStore((s) => s.setUser)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
@@ -27,36 +19,58 @@ export default function PasswordGate({ children }: PasswordGateProps) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    try {
-      const authed = localStorage.getItem(AUTH_KEY) === '1'
-      setIsAuthed(authed)
-      if (authed) {
-        setShowLoader(true)
-      }
-    } catch {
-      setIsAuthed(false)
-    }
-  }, [])
-
-  useEffect(() => {
     inputRef.current?.focus()
   }, [])
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setError(null)
 
-    if (password === expectedPassword) {
-      try {
-        localStorage.setItem(AUTH_KEY, '1')
-      } catch {}
-      setShowLoader(true)
-      setIsAuthed(true)
-      return
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      })
+
+      const json = (await res.json().catch(() => ({}))) as {
+        user?: {
+          id: string
+          username: string
+          colour?: string | null
+          admin?: boolean
+        }
+        error?: string
+      }
+
+      if (!res.ok) {
+        setError(
+          res.status === 401
+            ? 'Incorrect password'
+            : json.error || 'Login failed',
+        )
+        setIsSubmitting(false)
+        return
+      }
+
+      if (!json.user?.id || !json.user?.username) {
+        setError('Incorrect password')
+        setIsSubmitting(false)
+        return
+      }
+
+      setUser({
+        id: json.user.id,
+        username: json.user.username,
+        colour: typeof json.user.colour === 'string' ? json.user.colour : null,
+        admin: json.user.admin === true,
+      })
+      setIsSubmitting(false)
+    } catch {
+      setError('Could not reach server.')
+      setIsSubmitting(false)
     }
-
-    setError('Incorrect password')
-    setIsSubmitting(false)
   }
 
   const onChange = (val: string) => {
@@ -64,44 +78,8 @@ export default function PasswordGate({ children }: PasswordGateProps) {
     if (error) setError(null)
   }
 
-  useEffect(() => {
-    if (!showLoader) return
-    const t = window.setTimeout(() => setShowLoader(false), 1000)
-    return () => window.clearTimeout(t)
-  }, [showLoader])
-
-  if (isAuthed) {
-    return (
-      <>
-        <div style={{ filter: showLoader ? 'blur(10px)' : 'none', transition: 'filter 180ms ease' }}>
-          {children}
-        </div>
-        {showLoader ? (
-          <div
-            role="presentation"
-            style={{
-              position: 'fixed',
-              inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 999999,
-              background: 'color-mix(in srgb, var(--bg-900), transparent 55%)',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
-            }}
-          >
-            <Ring
-              size="40"
-              stroke="6"
-              bgOpacity="0"
-              speed="1.6"
-              color="white"
-            />
-          </div>
-        ) : null}
-      </>
-    )
+  if (user) {
+    return <>{children}</>
   }
 
   return (
@@ -128,12 +106,10 @@ export default function PasswordGate({ children }: PasswordGateProps) {
           background: 'color-mix(in srgb, var(--bg) 92%, black 8%)',
         }}
       >
-        <h1 style={{ fontSize: 28, margin: '6px 0 10px' }}>
-          Login
-        </h1>
+        <h1 style={{ fontSize: 28, margin: '6px 0 10px' }}>Login</h1>
 
         <p style={{ marginTop: 0, opacity: 0.9, lineHeight: 1.3 }}>
-          Enter the password to access the schedule.
+          Enter the password to access the roster.
         </p>
 
         <form onSubmit={onSubmit} style={{ marginTop: 14 }}>
@@ -188,7 +164,6 @@ export default function PasswordGate({ children }: PasswordGateProps) {
             </button>
           </div>
 
-          {/* Reserved error space (prevents layout shift) */}
           <div
             role="alert"
             aria-live="assertive"

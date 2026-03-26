@@ -1,0 +1,53 @@
+.timeBlockSelector {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+@media (min-width: 480px) {
+  .timeBlockSelector {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.timeBlockSelector__cell {
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 20%);
+  background: color-mix(in srgb, var(--bg-800), var(--bg-900) 30%);
+  color: color-mix(in srgb, var(--text-h), var(--text) 25%);
+  font-size: 12px;
+  padding: 8px 6px;
+  cursor: default;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.timeBlockSelector--interactive .timeBlockSelector__cell:not(:disabled) {
+  cursor: pointer;
+}
+
+.timeBlockSelector--interactive .timeBlockSelector__cell:not(:disabled):hover {
+  border-color: color-mix(in srgb, #fb923c, var(--border) 40%);
+}
+
+.timeBlockSelector__cell--selected {
+  background: color-mix(in srgb, #ea580c, transparent 12%);
+  border-color: #fb923c;
+  color: #fff7ed;
+  font-weight: 600;
+}
+
+.timeBlockSelector__label {
+  display: block;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.timeBlockSelector__cell:disabled {
+  opacity: 0.55;
+}

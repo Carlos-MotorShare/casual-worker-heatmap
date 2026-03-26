@@ -3,7 +3,7 @@ export const TIMELINE_SEGMENT_COUNT = 12
 export const TIMELINE_START_MINUTES = 8 * 60
 export const TIMELINE_END_MINUTES = 20 * 60
 
-export type TimelineEvent = { id: string; time: string }
+export type TimelineEvent = { id: string; time: string; vehicle?: string }
 
 export type TimelineSegmentBucket = {
   pickups: TimelineEvent[]

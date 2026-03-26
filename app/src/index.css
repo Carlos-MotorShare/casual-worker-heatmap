@@ -211,6 +211,278 @@ code {
 
 .dayModalCol--timeline {
   min-width: 0;
+  overflow: visible;
+}
+
+.dayModalTimelineRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .dayModalTimelineRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dayModalTimelineMain {
+  min-width: 0;
+  overflow: visible;
+}
+
+.dayModalRosterSummary {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border), transparent 45%);
+  font-size: 12px;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--text-h), var(--text) 22%);
+}
+
+.dayModalRosterSummaryLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px 8px;
+  margin: 0 0 8px;
+}
+
+.dayModalRosterSummaryLine:last-child {
+  margin-bottom: 0;
+}
+
+.dayModalRosterSummaryText {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.dayModalRosterSummaryColour {
+  flex-shrink: 0;
+  width: 6px;
+  height: 14px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border), transparent 40%);
+}
+
+.dayModalRosterSummaryName {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.dayModalRosterSummaryRanges {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: color-mix(in srgb, var(--text-h), var(--text) 15%);
+}
+
+.dayModalRosterRemoveBtn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, #ef4444, transparent 35%);
+  background: color-mix(in srgb, #ef4444, transparent 88%);
+  color: #fecaca;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.dayModalRosterRemoveBtn:hover {
+  background: color-mix(in srgb, #ef4444, transparent 75%);
+  border-color: #f87171;
+}
+
+.dayModalRosterRemoveBtn:focus-visible {
+  outline: 2px solid #f87171;
+  outline-offset: 2px;
+}
+
+.dayModalStatLabelWithLegend {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.2;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-h), var(--text) 35%);
+}
+
+.dayModalLegendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.dayModalLegendDot--pickup {
+  background: color-mix(in srgb, var(--highlight-teal), #6ee7b7 15%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--highlight-teal), transparent 50%);
+}
+
+.dayModalLegendDot--dropoff {
+  background: #facc15;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #ca8a04, transparent 45%);
+}
+
+/* Roster delete nested dialog (above day modal) */
+.rosterDeleteBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--bg-900), transparent 45%);
+  backdrop-filter: blur(4px);
+}
+
+.rosterDeletePanel {
+  width: min(400px, 100%);
+  padding: 18px 20px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 30%);
+  background: color-mix(in srgb, var(--bg-900), transparent 8%);
+  box-shadow: var(--shadow);
+  color: var(--text-h);
+}
+
+.rosterDeleteTitle {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+}
+
+.rosterDeleteHint {
+  margin: 0 0 14px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--text-h), var(--text) 18%);
+}
+
+.rosterDeleteList {
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.rosterDeleteOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 30%);
+  cursor: pointer;
+  font-size: 14px;
+  font-family: var(--mono);
+}
+
+.rosterDeleteOption:hover {
+  background: color-mix(in srgb, var(--white), transparent 94%);
+}
+
+.rosterDeleteError {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #fecaca;
+}
+
+.rosterDeleteActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.rosterDeleteBtn {
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.rosterDeleteBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.rosterDeleteBtn--ghost {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--border), transparent 30%);
+  color: var(--text);
+}
+
+.rosterDeleteBtn--primary {
+  background: var(--primary-500);
+  color: white;
+}
+
+.rosterDeleteBtn--danger {
+  background: color-mix(in srgb, #ef4444, transparent 75%);
+  border-color: #f87171;
+  color: #fef2f2;
+}
+
+.rosterDeleteBtn--danger:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.dayModalScheduleWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding-top: 22px;
+}
+
+@media (max-width: 640px) {
+  .dayModalScheduleWrap {
+    padding-top: 0;
+    width: 100%;
+  }
+}
+
+.dayModalScheduleBtn {
+  flex-shrink: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, #fb923c, var(--border) 20%);
+  color: #ffedd5;
+  background: transparent;
+  white-space: nowrap;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.dayModalScheduleBtn:hover {
+  background: color-mix(in srgb, #ea580c, transparent 88%);
+  border-color: #fdba74;
+}
+
+.dayModalScheduleBtn:focus-visible {
+  outline: 2px solid #fb923c;
+  outline-offset: 2px;
 }
 
 .dayModalCol--stats {
@@ -271,12 +543,13 @@ code {
 .dayTimeline {
   position: relative;
   display: grid;
-  grid-template-columns: 42px 48px;
+  grid-template-columns: 42px 48px minmax(88px, 1fr);
   grid-template-rows: auto auto;
   gap: 8px 10px;
   align-items: stretch;
   width: 100%;
-  max-width: 260px;
+  max-width: min(360px, 100%);
+  overflow: visible;
 }
 
 .dayTimelineAxis {
@@ -303,17 +576,71 @@ code {
   white-space: nowrap;
 }
 
-.dayTimelineBar {
+/* Fixed 48px column: hour blocks only (no roster overlay). */
+.dayTimelineSegmentsCol {
   grid-column: 2;
   grid-row: 2;
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
+  width: 48px;
   min-height: 280px;
   gap: 3px;
 }
 
+/* Roster lines sit in their own column to the right; blocks stay unchanged. */
+.dayTimelineRosterRail {
+  grid-column: 3;
+  grid-row: 2;
+  min-width: 0;
+  align-self: stretch;
+}
+
+.dayTimelineRosterRailGrid {
+  display: grid;
+  grid-template-rows: repeat(12, 1fr);
+  gap: 3px;
+  min-height: 280px;
+  height: 100%;
+}
+
+.dayTimelineSegCell {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.dayTimelineSegCell .dayTimelineSeg {
+  height: 100%;
+}
+
+.dayTimelineRosterSegRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 0;
+}
+
+.dayTimelineRosterSwatches {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
+  gap: 3px;
+}
+
+.dayTimelineRosterSwatch {
+  width: 6px;
+  height: 14px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border), transparent 40%);
+}
+
 .dayTimelineSeg {
   position: relative;
+  overflow: visible;
   flex: 1 1 0;
   min-height: 10px;
   border-radius: 7px;
@@ -364,8 +691,8 @@ code {
 }
 
 .dayTimelineDot--dropoff {
-  background: color-mix(in srgb, var(--highlight-orange), #fecaca 0%);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--highlight-orange), transparent 45%);
+  background: #facc15;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #ca8a04, transparent 45%);
 }
 
 .dayTimelineMore {
@@ -391,8 +718,8 @@ code {
 }
 
 .dayTimelineCount--dropoff {
-  color: color-mix(in srgb, var(--highlight-orange), white 20%);
-  background: color-mix(in srgb, var(--highlight-orange), transparent 85%);
+  color: color-mix(in srgb, #ca8a04, white 20%);
+  background: color-mix(in srgb, #facc15, transparent 85%);
 }
 
 .dayTimelineExpand {
@@ -414,17 +741,28 @@ code {
   background: color-mix(in srgb, var(--white), transparent 90%);
 }
 
-.dayTimelineSegTip {
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  transform: translate(8px, -50%);
-  z-index: 2;
+/* Portaled to document.body (DayTimeline) so width is not capped by the ~48px hour cell. */
+.dayTimelineSegTip--fixed {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  top: auto;
+  width: auto;
+  max-width: min(920px, calc(100vw - 32px));
+  margin-left: auto;
+  margin-right: auto;
+  transform: none;
+  z-index: 10050;
+  box-sizing: border-box;
   padding: 6px 8px;
   border-radius: 8px;
   font-size: 11px;
   line-height: 1.35;
-  white-space: nowrap;
+  overflow-x: hidden;
+  overflow-y: visible;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   color: var(--text-h);
   background: color-mix(in srgb, var(--bg-900), transparent 12%);
   border: 1px solid color-mix(in srgb, var(--border), transparent 35%);
@@ -432,13 +770,11 @@ code {
   pointer-events: none;
 }
 
-@media (max-width: 640px) {
-  .dayTimelineSegTip {
-    left: auto;
-    right: 0;
-    top: 100%;
-    transform: translate(0, 4px);
-  }
+.dayTimelineSegTip--fixed > div {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: inherit;
+  max-width: 100%;
 }
 
 .dayTimelineCaption {
