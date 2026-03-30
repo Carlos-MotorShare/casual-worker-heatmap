@@ -1,0 +1,344 @@
+.monthCalWrap {
+  width: min(980px, 100%);
+  margin: 0 auto;
+  text-align: left;
+  display: grid;
+  gap: 14px;
+}
+
+.monthCalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.monthCalTitle {
+  text-align: left;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--text-h);
+}
+
+.monthCalHeaderNav {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.monthCalNavBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 30%);
+  background: color-mix(in srgb, var(--white), transparent 94%);
+  color: var(--text-h);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition:
+    transform 140ms ease,
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.monthCalNavGlyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0.82;
+  transform: scaleY(1.14);
+}
+
+.monthCalNavBtn:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--white), transparent 90%);
+  border-color: color-mix(in srgb, var(--accent), transparent 60%);
+}
+
+.monthCalNavBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.monthCalWeekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  opacity: 0.95;
+}
+
+.monthCalWeekday {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: color-mix(in srgb, var(--text-h), var(--text) 35%);
+  text-align: center;
+}
+
+.monthCalGrid {
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 15%);
+  background: color-mix(in srgb, var(--bg-800), var(--bg-900) 35%);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  /* Faster taps on mobile; still allows panning within the page */
+  touch-action: manipulation;
+  min-width: 0;
+}
+
+/* 7×6 grid of square cells: height = width × 6/7 — avoids a clipped/partial bottom row */
+.monthCalGridInner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 7 / 6;
+  min-height: 0;
+}
+
+.monthCalLayer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: repeat(6, minmax(0, 1fr));
+  gap: 0;
+  min-height: 0;
+  min-width: 0;
+  will-change: transform, opacity;
+  transition: none;
+}
+
+.monthCalGridInner--animating .monthCalLayer {
+  transition:
+    transform 240ms ease,
+    opacity 240ms ease;
+}
+
+.monthCalLayer--current {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+}
+
+.monthCalLayer--incoming {
+  opacity: 0;
+}
+
+.monthCalGridInner--next .monthCalLayer--incoming {
+  transform: translate3d(100%, 0, 0);
+}
+
+.monthCalGridInner--prev .monthCalLayer--incoming {
+  transform: translate3d(-100%, 0, 0);
+}
+
+.monthCalGridInner--animating.monthCalGridInner--next .monthCalLayer--current {
+  transform: translate3d(-100%, 0, 0);
+  opacity: 0;
+}
+
+.monthCalGridInner--animating.monthCalGridInner--next .monthCalLayer--incoming {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+}
+
+.monthCalGridInner--animating.monthCalGridInner--prev .monthCalLayer--current {
+  transform: translate3d(100%, 0, 0);
+  opacity: 0;
+}
+
+.monthCalGridInner--animating.monthCalGridInner--prev .monthCalLayer--incoming {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+}
+
+.monthCalCell {
+  min-height: 0;
+  min-width: 0;
+  border-right: 1px solid color-mix(in srgb, var(--border), transparent 55%);
+  border-bottom: 1px solid color-mix(in srgb, var(--border), transparent 55%);
+  box-sizing: border-box;
+  /* overflow visible so joined away lines can reach the cell edge (no negative-margin clipping) */
+  overflow: visible;
+  position: relative;
+}
+
+.monthCalCell:nth-child(7n) {
+  border-right: none;
+}
+
+.monthCalCell:nth-last-child(-n + 7) {
+  border-bottom: none;
+}
+
+.monthCalCellInner {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.monthCalDayNum {
+  position: relative;
+  z-index: 2;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-h);
+  opacity: 0.95;
+}
+
+.monthCalAwayLines {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  box-sizing: border-box;
+  display: grid;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.monthCalAwayLine {
+  display: block;
+  box-sizing: border-box;
+  justify-self: stretch;
+  height: 3px;
+  margin-left: 8px;
+  margin-right: 8px;
+  border-radius: 999px;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--bg-900), transparent 65%);
+  opacity: 0.95;
+}
+
+/* Join consecutive calendar days: extend to shared cell edge (no negative margins — not clipped) */
+.monthCalAwayLine--connectL {
+  margin-left: 0;
+}
+
+.monthCalAwayLine--connectR {
+  margin-right: 0;
+}
+
+.monthCalAwayLine--connectL.monthCalAwayLine--connectR {
+  border-radius: 0;
+}
+
+.monthCalAwayLine--connectL:not(.monthCalAwayLine--connectR) {
+  border-radius: 0 999px 999px 0;
+}
+
+.monthCalAwayLine--connectR:not(.monthCalAwayLine--connectL) {
+  border-radius: 999px 0 0 999px;
+}
+
+.monthCalTip {
+  position: fixed;
+  z-index: 999999;
+  padding: 10px 10px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 35%);
+  background: color-mix(in srgb, var(--bg-900), var(--bg-800) 14%);
+  color: var(--text-h);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.monthCalTipRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.3;
+  padding: 3px 0;
+}
+
+.monthCalTipDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--bg-900), transparent 55%);
+}
+
+.monthCalTipText {
+  color: color-mix(in srgb, var(--text-h), var(--text) 10%);
+}
+
+.monthCalCell--out .monthCalDayNum {
+  opacity: 0.32;
+}
+
+/* Light blue stroke for “today”; keep fill very subtle */
+.monthCalCell--today {
+  background: color-mix(in srgb, #93c5fd, transparent 94%);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, #60a5fa, transparent 42%);
+}
+
+.monthCalModeToggle {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 28%);
+  background: color-mix(in srgb, var(--white), transparent 95%);
+}
+
+.monthCalModeBtn {
+  border: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--text-h), var(--text) 30%);
+  padding: 8px 12px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.monthCalModeBtn:hover {
+  background: color-mix(in srgb, var(--white), transparent 90%);
+}
+
+.monthCalModeBtn--active {
+  color: var(--text-h);
+  background: color-mix(in srgb, var(--accent), transparent 82%);
+}
+
+.monthCalWeekendHint {
+  margin: 0;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text-h), var(--text) 38%);
+  padding-left: 2px;
+}
+
+.monthCalCell--weekendEmpty {
+  box-shadow: inset 0 0 0 2px rgba(248, 113, 113, 0.42);
+}
+
+.monthCalCell--weekendStaffed {
+  box-shadow: inset 0 0 0 2px rgba(74, 222, 128, 0.5);
+}
+
+.monthCalCell--today.monthCalCell--weekendEmpty {
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, #60a5fa, transparent 42%),
+    inset 0 0 0 3px rgba(248, 113, 113, 0.42);
+}
+
+.monthCalCell--today.monthCalCell--weekendStaffed {
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, #60a5fa, transparent 42%),
+    inset 0 0 0 3px rgba(74, 222, 128, 0.5);
+}
+

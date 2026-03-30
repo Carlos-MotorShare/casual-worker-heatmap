@@ -40,6 +40,7 @@ export default function PasswordGate({ children }: PasswordGateProps) {
           username: string
           colour?: string | null
           admin?: boolean
+          canRoster?: boolean
         }
         error?: string
       }
@@ -65,6 +66,7 @@ export default function PasswordGate({ children }: PasswordGateProps) {
         username: json.user.username,
         colour: typeof json.user.colour === 'string' ? json.user.colour : null,
         admin: json.user.admin === true,
+        canRoster: json.user.canRoster === true,
       })
       setIsSubmitting(false)
     } catch {

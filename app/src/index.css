@@ -154,6 +154,22 @@ code {
   opacity: 1;
 }
 
+.dayModalPanelInner,
+.dayPanel {
+  width: 100%;
+}
+
+.dayPanel {
+  width: min(980px, 100%);
+  margin: 0 auto;
+  text-align: left;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 25%);
+  background: color-mix(in srgb, var(--bg-800), var(--bg-900) 40%);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
 .dayModalHeader {
   display: flex;
   align-items: flex-start;
@@ -517,6 +533,18 @@ code {
   font-size: 14px;
   line-height: 1.4;
   color: color-mix(in srgb, var(--text-h), var(--text) 18%);
+}
+
+.dayModalStaffAwayList {
+  margin: 8px 0 0 18px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--text-h), var(--text) 18%);
+}
+
+.dayModalStaffAwayList li {
+  margin: 2px 0;
 }
 
 .dayModalCarsBadge {
