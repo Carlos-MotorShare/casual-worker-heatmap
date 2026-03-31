@@ -69,7 +69,10 @@ export default function DayDetailPanel({
       .filter((a) => a.startDate <= iso && a.endDate >= iso)
       .map((a) => a.staffName)
       .filter(Boolean)
-    const fromDay = (day.staffsAway ?? []).map((a) => a.staffName).filter(Boolean)
+    const fromDay = (day.staffsAway ?? [])
+      .filter((a) => a.startDate <= iso && a.endDate >= iso)
+      .map((a) => a.staffName)
+      .filter(Boolean)
     const list = [...fromRanges, ...fromDay]
     return Array.from(new Set(list)).sort((a, b) => a.localeCompare(b))
   }, [day.date, day.staffsAway, staffsAway])
@@ -157,6 +160,17 @@ export default function DayDetailPanel({
               </span>
               <span className="dayModalStatValue">{day.dropoffs}</span>
             </div>
+
+            {awayNames.length > 0 ? (
+              <>
+                <p className="dayModalStaffLine">Staff away ({awayNames.length})</p>
+                <ul className="dayModalStaffAwayList" aria-label="Staff away list">
+                  {awayNames.map((name) => (
+                    <li key={name}>{name}</li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
 
             <div className="dayModalCarsBadge" aria-label="Cars to wash">
               <div className="dayModalCarsBadgeHeader">
