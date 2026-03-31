@@ -1,3 +1,8 @@
+export type DirtyCar = {
+  vehicleName: string
+  nextPickupDateTime: string | null
+}
+
 export type StaffingDay = {
   date: string
   pickups: number
@@ -11,6 +16,7 @@ export type StaffingDay = {
     endDate: string
     reason: string
   }>
+  dirtyCars?: DirtyCar[]
   pickupsList?: Array<{ id: string; time: string; vehicle?: string }>
   dropoffsList?: Array<{ id: string; time: string; vehicle?: string }>
 }

@@ -166,6 +166,8 @@
   /* overflow visible so joined away lines can reach the cell edge (no negative-margin clipping) */
   overflow: visible;
   position: relative;
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .monthCalCell:nth-child(7n) {
@@ -182,6 +184,7 @@
   display: grid;
   place-items: center;
   position: relative;
+  pointer-events: none;
 }
 
 .monthCalDayNum {

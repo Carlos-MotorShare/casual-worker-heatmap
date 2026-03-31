@@ -11,6 +11,7 @@ type DayDetailModalProps = {
   canSchedule: boolean
   onScheduleClick: () => void
   staffsAway?: Array<{ staffName: string; startDate: string; endDate: string; reason: string }>
+  dirtyCars?: Array<{ vehicleName: string; nextPickupDateTime: string | null }>
   currentUser?: User | null
   onRosterBlockDeleted?: () => void
   /** When true, Escape and backdrop do not close (e.g. stacked scheduling modal). */
@@ -24,6 +25,7 @@ export default function DayDetailModal({
   canSchedule,
   onScheduleClick,
   staffsAway = [],
+  dirtyCars = [],
   currentUser = null,
   onRosterBlockDeleted,
   lockClose = false,
@@ -92,6 +94,7 @@ export default function DayDetailModal({
           rosterRows={rosterRows}
           canSchedule={canSchedule}
           staffsAway={staffsAway}
+          dirtyCars={dirtyCars}
           currentUser={currentUser}
           onRosterBlockDeleted={onRosterBlockDeleted}
           onScheduleClick={onScheduleClick}

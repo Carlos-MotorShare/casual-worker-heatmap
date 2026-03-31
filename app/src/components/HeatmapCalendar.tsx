@@ -10,6 +10,7 @@ import type { RosterRow, User } from '../lib/rosterTypes'
 import {
   calculateStaffingPressureScoreRaw,
   type StaffingDay,
+  type DirtyCar,
 } from '../staffingDay'
 
 export type { StaffingDay } from '../staffingDay'
@@ -68,6 +69,7 @@ export type HeatmapCalendarProps = {
   title?: string
   rosterByDate?: Record<string, RosterRow[]>
   staffsAway?: Array<{ staffName: string; startDate: string; endDate: string; reason: string }>
+  dirtyCars?: DirtyCar[]
   canSchedule?: boolean
   onScheduleRequest?: (day: StaffingDay) => void
   currentUser?: User | null
@@ -79,6 +81,7 @@ export default function HeatmapCalendar({
   title = 'Staffing pressure',
   rosterByDate,
   staffsAway = [],
+  dirtyCars = [],
   canSchedule = false,
   onScheduleRequest,
   currentUser = null,
@@ -140,6 +143,7 @@ export default function HeatmapCalendar({
           modalDay ? heatmapRosterByDate?.[modalDay.date] ?? [] : []
         }
         staffsAway={staffsAway}
+        dirtyCars={dirtyCars}
         canSchedule={
           canSchedule && (!modalDay || !isWeekendIso(modalDay.date))
         }

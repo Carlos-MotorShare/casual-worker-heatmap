@@ -177,6 +177,23 @@ function normalizeDay(day) {
       d.staffsAway ?? d.staffs_away ?? d.staffsData ?? d.staffs_data,
     ),
   };
+  
+  // Preserve dirtyCars if present
+  const dirtyCarsRaw = d.dirtyCars ?? d.dirty_cars;
+  if (Array.isArray(dirtyCarsRaw)) {
+    out.dirtyCars = dirtyCarsRaw.filter((car) => {
+      if (!car || typeof car !== "object") return false;
+      const c = /** @type {Record<string, unknown>} */ (car);
+      return typeof c.vehicleName === "string" || typeof c.vehicle_name === "string";
+    }).map((car) => {
+      const c = /** @type {Record<string, unknown>} */ (car);
+      return {
+        vehicleName: typeof c.vehicleName === "string" ? c.vehicleName : String(c.vehicle_name ?? ""),
+        nextPickupDateTime: typeof c.nextPickupDateTime === "string" ? c.nextPickupDateTime : (typeof c.next_pickup_date_time === "string" ? c.next_pickup_date_time : null),
+      };
+    });
+  }
+  
   return out;
 }
 
@@ -395,6 +412,11 @@ app.post("/api/airtable", async (req, res) => {
   const daysCount = Array.isArray(payload?.days) ? payload.days.length : 0;
 
   console.log(`[airtable] received payload generatedAt=${generatedAt} days=${daysCount}`);
+  if (payload?.days?.[0]) {
+    const firstDay = /** @type {Record<string, unknown>} */ (payload.days[0]);
+    console.log(`[airtable] days[0] keys:`, Object.keys(firstDay));
+    console.log(`[airtable] days[0] dirtyCars:`, firstDay.dirtyCars);
+  }
 
   if (!payload) {
     console.error("[airtable] invalid payload format.");
@@ -590,6 +612,29 @@ app.get("/api/worker-users", async (_req, res) => {
   }
 });
 
+app.get("/api/admin-users", async (req, res) => {
+  try {
+    const excludeUserId = typeof req.query.exclude === "string" ? req.query.exclude : null;
+    const { data, error } = await supabase.rpc("list_admin_users", {
+      exclude_user_id: excludeUserId ? excludeUserId : null,
+    });
+    if (error) {
+      console.error("[admin-users] rpc failed:", error);
+      return res.status(500).json({ error: "Failed to load admins." });
+    }
+    const list = Array.isArray(data) ? data : [];
+    const rows = list.map((r) => ({
+      id: typeof r.id === "string" ? r.id : "",
+      username: typeof r.username === "string" ? r.username : "",
+      colour: typeof r.colour === "string" ? r.colour : null,
+    }));
+    return res.status(200).json({ rows });
+  } catch (e) {
+    console.error("[admin-users] unexpected error:", e);
+    return res.status(500).json({ error: "Failed to load admins." });
+  }
+});
+
 app.get("/api/staff-colours", async (_req, res) => {
   try {
     const { data, error } = await supabase.rpc("staff_colours");
@@ -779,6 +824,23 @@ app.post("/api/rosters/delete-block", async (req, res) => {
     return res.status(500).json({ error: "Failed to delete block." });
   }
 });
+
+app.post('/api/webhooks/airtable/vehicle-cleaned', async (req, res) => {
+  const { vehicleName, timestamp } = req.body
+  
+  // Forward to Airtable webhook URL
+  try {
+    await fetch('https://hooks.airtable.com/workflows/v1/genericWebhook/apprkS2KIK9UVyF14/wfli6NJF5p9Kcu9Dk/wtr36Ftt2QXX3pBwl', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vehicleName, timestamp })
+    })
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('Webhook error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
 
 app.get("/api/stream", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");

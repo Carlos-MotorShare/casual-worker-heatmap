@@ -11,10 +11,12 @@
   padding: 16px;
   opacity: 0;
   transition: opacity 180ms ease;
+  pointer-events: none;
 }
 
 .weekendRosterBackdrop--visible {
   opacity: 1;
+  pointer-events: auto;
 }
 
 @media (min-width: 520px) {
@@ -214,10 +216,16 @@
   border-radius: 10px;
   cursor: pointer;
   transition: background 140ms ease;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .weekendRosterAssignBtn:hover:not(:disabled) {
   background: color-mix(in srgb, #f97316, transparent 78%);
+}
+
+.weekendRosterAssignBtn:active:not(:disabled) {
+  background: color-mix(in srgb, #f97316, transparent 75%);
 }
 
 .weekendRosterAssignBtn:disabled {

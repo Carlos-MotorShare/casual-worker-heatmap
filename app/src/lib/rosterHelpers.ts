@@ -403,9 +403,12 @@ export function rosterSummaryDetailForDay(rows: RosterRow[]): RosterSummaryLineD
 export function canActorRemoveRosterLine(
   line: RosterSummaryLineDetail,
   user: User | null,
-  dayDateIso: string,
 ): boolean {
   if (!user) return false
-  if (line.userId === user.id || user.admin === true) return true
-  return user.canRoster === true && isWeekendIso(dayDateIso)
+  // Can always remove own line
+  if (line.userId === user.id) return true
+  // Only canRoster users can remove others (on weekends)
+  if (user.canRoster === true) return true
+  // Admins and non-canRoster users cannot remove others
+  return false
 }

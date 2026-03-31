@@ -6,9 +6,10 @@ import {
   type RosterSummaryLineDetail,
 } from '../lib/rosterHelpers'
 import type { RosterRow, User } from '../lib/rosterTypes'
-import type { StaffingDay } from '../staffingDay'
+import type { DirtyCar, StaffingDay } from '../staffingDay'
 import DayTimeline from './DayTimeline'
 import RosterDeleteFlow from './RosterDeleteFlow'
+import DirtyCarsPanel from './DirtyCarsPanel'
 
 type StaffAwayRange = {
   staffName: string
@@ -33,6 +34,7 @@ type DayDetailPanelProps = {
   canSchedule: boolean
   onScheduleClick: () => void
   staffsAway?: StaffAwayRange[]
+  dirtyCars?: DirtyCar[]
   currentUser?: User | null
   onRosterBlockDeleted?: () => void
   rightAction?: React.ReactNode
@@ -45,6 +47,7 @@ export default function DayDetailPanel({
   canSchedule,
   onScheduleClick,
   staffsAway = [],
+  dirtyCars = [],
   currentUser = null,
   onRosterBlockDeleted,
   rightAction,
@@ -119,7 +122,7 @@ export default function DayDetailPanel({
                       <span className="dayModalRosterSummaryName">{line.username}</span>
                       <span className="dayModalRosterSummaryRanges">{line.rangesDisplay}</span>
                     </div>
-                    {canActorRemoveRosterLine(line, currentUser, day.date) ? (
+                    {canActorRemoveRosterLine(line, currentUser) ? (
                       <button
                         type="button"
                         className="dayModalRosterRemoveBtn"
@@ -140,14 +143,6 @@ export default function DayDetailPanel({
           </div>
 
           <div className="dayModalCol dayModalCol--stats">
-            <div className="dayModalCarsBadge" aria-label="Cars to wash">
-              <span className="dayModalCarsEmoji" aria-hidden="true">
-                🧼
-              </span>
-              <span>
-                {day.carsToWash} {day.carsToWash === 1 ? 'car' : 'cars'} to wash
-              </span>
-            </div>
             <div className="dayModalStat">
               <span className="dayModalStatLabelWithLegend">
                 <span className="dayModalLegendDot dayModalLegendDot--pickup" aria-hidden />
@@ -162,14 +157,27 @@ export default function DayDetailPanel({
               </span>
               <span className="dayModalStatValue">{day.dropoffs}</span>
             </div>
-            <p className="dayModalStaffLine">Staff away: {day.staffAwayCount}</p>
-            {awayNames.length > 0 ? (
-              <ul className="dayModalStaffAwayList" aria-label="Staff away list">
-                {awayNames.map((name) => (
-                  <li key={name}>{name}</li>
-                ))}
-              </ul>
-            ) : null}
+
+            <div className="dayModalCarsBadge" aria-label="Cars to wash">
+              <div className="dayModalCarsBadgeHeader">
+                <span className="dayModalCarsEmoji" aria-hidden="true">
+                  🧼
+                </span>
+                <span>
+                  {day.carsToWash || 0} {day.carsToWash === 1 ? 'car' : 'cars'} to wash
+                </span>
+              </div>
+              {dirtyCars.length > 0 ? (
+                <DirtyCarsPanel
+                  dirtyCars={dirtyCars}
+                  showHeader={false}
+                  onCarCleaned={() => {
+                    // Optionally trigger a refresh or update
+                  }}
+                />
+              ) : null}
+            </div>
+            
           </div>
         </div>
       </div>

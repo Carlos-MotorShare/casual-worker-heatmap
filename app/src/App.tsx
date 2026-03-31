@@ -57,12 +57,16 @@ function App() {
   const user = useUserStore((s) => s.user)
   const rowsByDate = useRosterStore((s) => s.rowsByDate)
   const loadRosterRange = useRosterStore((s) => s.loadRange)
+  const loadAdminUsers = useRosterStore((s) => s.loadAdminUsers)
   const [scheduleDay, setScheduleDay] = useState<StaffingDay | null>(null)
-  const [activeTab, setActiveTab] = useState<BottomNavKey>('roster')
-  const prevTabRef = useRef<BottomNavKey>('roster')
+  const [activeTab, setActiveTab] = useState<BottomNavKey>('today')
+  const prevTabRef = useRef<BottomNavKey>('today')
   const [leavingTab, setLeavingTab] = useState<BottomNavKey | null>(null)
   const [staffsAway, setStaffsAway] = useState<
     Array<{ staffName: string; startDate: string; endDate: string; reason: string }>
+  >([])
+  const [dirtyCars, setDirtyCars] = useState<
+    Array<{ vehicleName: string; nextPickupDateTime: string | null }>
   >([])
   const [staffColourByLowerName, setStaffColourByLowerName] = useState<
     Record<string, string>
@@ -152,11 +156,21 @@ function App() {
     return () => window.clearTimeout(id)
   }, [])
 
+  // Force enable interaction after 5 seconds even if not connected
+  const [forceEnableAfterTimeout, setForceEnableAfterTimeout] = useState(false)
+  useEffect(() => {
+    const id = window.setTimeout(() => setForceEnableAfterTimeout(true), 5000)
+    return () => window.clearTimeout(id)
+  }, [])
+
   useEffect(() => {
     if (!user) {
       setStaffColourByLowerName({})
       return
     }
+    // Load admin users for weekend roster modal caching
+    void loadAdminUsers(user.id)
+    
     let cancelled = false
     void (async () => {
       try {
@@ -183,7 +197,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [user, loadAdminUsers])
 
   useEffect(() => {
     const es = new EventSource(`${API_BASE_URL}/api/stream`)
@@ -226,6 +240,10 @@ function App() {
             endDate: string
             reason: string
           }> = []
+          
+          // Extract dirty cars from first day (if present)
+          let dirtyCarsFromFirstDay: Array<{ vehicleName: string; nextPickupDateTime: string | null }> = []
+          
           if (Array.isArray(maybeDays)) {
             for (const d of maybeDays) {
               if (!d || typeof d !== 'object') continue
@@ -243,10 +261,33 @@ function App() {
                 nestedFlattened.push({ staffName, startDate, endDate, reason })
               }
             }
+            
+            // Extract dirty cars from the first day
+            const firstDay = maybeDays[0]
+            if (firstDay && typeof firstDay === 'object') {
+              const firstDayObj = firstDay as Record<string, unknown>
+              const dirtyCarsRaw = (firstDayObj.dirtyCars ?? firstDayObj.dirty_cars) as unknown
+              if (Array.isArray(dirtyCarsRaw)) {
+                dirtyCarsFromFirstDay = dirtyCarsRaw.filter(
+                  (x): x is { vehicleName: string; nextPickupDateTime: string | null } =>
+                    Boolean(x) &&
+                    typeof x === 'object' &&
+                    (typeof (x as { vehicleName?: unknown }).vehicleName === 'string' ||
+                      typeof (x as { vehicle_name?: unknown }).vehicle_name === 'string'),
+                ).map((x) => {
+                  const xo = x as Record<string, unknown>
+                  return {
+                    vehicleName: typeof xo.vehicleName === 'string' ? xo.vehicleName : String(xo.vehicle_name ?? ''),
+                    nextPickupDateTime: typeof xo.nextPickupDateTime === 'string' ? xo.nextPickupDateTime : (typeof xo.next_pickup_date_time === 'string' ? xo.next_pickup_date_time : null),
+                  }
+                })
+              }
+            }
           }
 
           const chosen = topLevelFiltered && topLevelFiltered.length > 0 ? topLevelFiltered : nestedFlattened
           setStaffsAway(chosen)
+          setDirtyCars(dirtyCarsFromFirstDay)
         }
       } catch {
         // ignore malformed events
@@ -268,7 +309,7 @@ function App() {
   }, [])
 
   /** Blur + spinner until connected and at least 1s on screen (no sub-second flash). */
-  const showMainLoader = !(liveStatus === 'connected' && minMainLoadDone)
+  const showMainLoader = !(liveStatus === 'connected' && minMainLoadDone) && !forceEnableAfterTimeout
 
   const effectiveDays = days && days.length ? days : mockDays
 
@@ -348,6 +389,18 @@ function App() {
     }, 260)
   }
 
+  useEffect(() => {
+    // Scroll the active page to the top whenever the tab changes
+    // Use requestAnimationFrame to ensure the DOM has updated and the scroll happens after layout
+    const id = requestAnimationFrame(() => {
+      const activePage = document.querySelector('.page--active')
+      if (activePage) {
+        activePage.scrollTop = 0
+      }
+    })
+    return () => cancelAnimationFrame(id)
+  }, [activeTab])
+
   return (
     <PasswordGate>
       <>
@@ -404,11 +457,11 @@ function App() {
                       and staff away.
                     </p>
                   </div>
-
                   <HeatmapCalendar
                     days={effectiveDays}
                     rosterByDate={rowsByDate}
                     staffsAway={staffsAway}
+                    dirtyCars={dirtyCars}
                     canSchedule={canSchedule}
                     currentUser={user}
                     onRosterBlockDeleted={reloadAllRosters}
@@ -481,6 +534,7 @@ function App() {
                         !isWeekendIso(todayDay.date)
                       }
                       staffsAway={staffsAway}
+                      dirtyCars={dirtyCars}
                       currentUser={user}
                       onRosterBlockDeleted={reloadAllRosters}
                       onScheduleClick={() => setScheduleDay(todayDay)}

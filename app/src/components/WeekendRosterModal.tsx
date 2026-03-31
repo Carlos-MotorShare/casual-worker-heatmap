@@ -7,6 +7,7 @@ import {
   type RosterSummaryLineDetail,
 } from '../lib/rosterHelpers'
 import type { RosterRow, User } from '../lib/rosterTypes'
+import { useRosterStore } from '../stores/useRosterStore'
 import RosterDeleteFlow from './RosterDeleteFlow'
 import './WeekendRosterModal.css'
 
@@ -51,6 +52,9 @@ export default function WeekendRosterModal({
   const [assignBusy, setAssignBusy] = useState(false)
   const [assignError, setAssignError] = useState<string | null>(null)
   const [deleteLine, setDeleteLine] = useState<RosterSummaryLineDetail | null>(null)
+  const [confirmAssign, setConfirmAssign] = useState<{ userId: string; username: string } | null>(null)
+
+  const { adminUsers, adminUsersLoaded, loadAdminUsers } = useRosterStore()
 
   useEffect(() => {
     if (!open) {
@@ -73,28 +77,25 @@ export default function WeekendRosterModal({
 
   useEffect(() => {
     if (!open) return
-    let cancelled = false
     setLoadError(null)
-    void (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/worker-users`)
-        const json = (await res.json().catch(() => ({}))) as {
-          rows?: WorkerRow[]
-          error?: string
+    if (!adminUsersLoaded) {
+      // Load admin users if not already cached
+      void (async () => {
+        try {
+          await loadAdminUsers(currentUser.id)
+          setLoadError(null)
+        } catch (e) {
+          setLoadError(e instanceof Error ? e.message : 'Could not load admins.')
         }
-        if (!res.ok) {
-          throw new Error(json.error || 'Could not load workers.')
-        }
-        const rows = Array.isArray(json.rows) ? json.rows : []
-        if (!cancelled) setWorkers(rows)
-      } catch (e) {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Could not load workers.')
-      }
-    })()
-    return () => {
-      cancelled = true
+      })()
     }
-  }, [open])
+  }, [open, currentUser.id, adminUsersLoaded, loadAdminUsers])
+
+  useEffect(() => {
+    // Update workers whenever admin users or current user changes
+    const filtered = adminUsers.filter((u) => u.id !== currentUser.id)
+    setWorkers(filtered)
+  }, [adminUsers, currentUser.id])
 
   useEffect(() => {
     if (!open) return
@@ -189,7 +190,7 @@ export default function WeekendRosterModal({
                         <span className="weekendRosterTimes">{line.rangesDisplay}</span>
                       </div>
                     </div>
-                    {canActorRemoveRosterLine(line, currentUser, dateIso) ? (
+                    {canActorRemoveRosterLine(line, currentUser) ? (
                       <button
                         type="button"
                         className="weekendRosterRemove"
@@ -210,7 +211,7 @@ export default function WeekendRosterModal({
                 type="button"
                 className="weekendRosterSelfBtn"
                 disabled={assignBusy}
-                onClick={() => void saveRosterForUser(currentUser.id)}
+                onClick={() => setConfirmAssign({ userId: currentUser.id, username: currentUser.username })}
               >
                 Work this day
               </button>
@@ -240,7 +241,7 @@ export default function WeekendRosterModal({
                         type="button"
                         className="weekendRosterAssignBtn"
                         disabled={assignBusy}
-                        onClick={() => void saveRosterForUser(w.id)}
+                        onClick={() => setConfirmAssign({ userId: w.id, username: w.username })}
                       >
                         + Assign {w.username}
                       </button>
@@ -253,7 +254,7 @@ export default function WeekendRosterModal({
 
           {!showAssign && !showSelfAssign ? (
             <p className="weekendRosterNote">
-              Contact a roster coordinator if you need changes to this day.
+              Contact Chris if you need changes to this day. Alternatively, you can request to swap with someone who is rostered.
             </p>
           ) : null}
         </div>
@@ -267,7 +268,51 @@ export default function WeekendRosterModal({
           setDeleteLine(null)
           onChanged()
         }}
+        isWeekendOnly={true}
       />
+
+      {confirmAssign ? (
+        <div
+          className="rosterDeleteBackdrop"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !assignBusy) setConfirmAssign(null)
+          }}
+        >
+          <div
+            className="rosterDeletePanel"
+            role="dialog"
+            aria-modal="true"
+            tabIndex={-1}
+          >
+            <h3 className="rosterDeleteTitle">Confirm assignment</h3>
+            <p className="rosterDeleteHint">
+              Assign <strong>{confirmAssign.username}</strong> to work {formatWeekendTitle(dateIso)}?
+            </p>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '16px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="rosterDeleteCancel"
+                disabled={assignBusy}
+                onClick={() => setConfirmAssign(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rosterDeleteBtn rosterDeleteBtn--primary"
+                disabled={assignBusy}
+                onClick={() => {
+                  void saveRosterForUser(confirmAssign.userId)
+                  setConfirmAssign(null)
+                }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>,
     document.body,
   )

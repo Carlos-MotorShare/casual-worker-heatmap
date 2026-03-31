@@ -93,7 +93,8 @@
 .page {
   position: absolute;
   inset: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   padding: 0 0 calc(128px + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
@@ -105,6 +106,7 @@
   opacity: 0;
   filter: brightness(0.7) saturate(0.8);
   pointer-events: none;
+  z-index: 0;
 }
 
 .page--active {
@@ -112,12 +114,14 @@
   opacity: 1;
   filter: none;
   pointer-events: auto;
+  z-index: 10;
 }
 
 .page--leaving {
   transform: translate3d(0, 0, 0);
   opacity: 0.25;
   filter: brightness(0.6) saturate(0.7);
+  pointer-events: none;
 }
 
 #next-steps {

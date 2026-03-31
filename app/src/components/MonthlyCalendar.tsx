@@ -146,9 +146,7 @@ function weekendStrokeKind(
   if (!inMonth) return null
   const d = parseIsoDateLocal(iso)
   if (!isWeekendCellDate(d)) return null
-  const staffed = new Set(
-    (rows ?? []).filter((r) => r.rosterUserIsAdmin !== true).map((r) => r.userId),
-  ).size
+  const staffed = (rows ?? []).length
   return staffed > 0 ? 'staffed' : 'empty'
 }
 
@@ -480,7 +478,7 @@ export default function MonthlyCalendar({
                 onPointerUp={(e) => {
                   if (e.button !== 0) return
                   const s = dragRef.current
-                  if (!s.active || s.pointerId !== e.pointerId) return
+                  if (s.active && s.pointerId !== e.pointerId) return
                   const dx = e.clientX - s.startX
                   if (s.blocked) return
                   if (Math.abs(dx) >= 60) return
@@ -489,6 +487,7 @@ export default function MonthlyCalendar({
                     if (!c.inMonth) return
                     if (!isWeekendCellDate(c.date)) return
                     e.stopPropagation()
+                    e.preventDefault()
                     setWeekendModalIso(c.iso)
                     return
                   }
@@ -633,16 +632,21 @@ export default function MonthlyCalendar({
             document.body,
           )
         : null}
-      {currentUser && weekendModalIso ? (
-        <WeekendRosterModal
-          open={!!weekendModalIso}
-          dateIso={weekendModalIso}
-          currentUser={currentUser}
-          rosterRows={rosterRowsByDate?.[weekendModalIso] ?? []}
-          onClose={() => setWeekendModalIso(null)}
-          onChanged={() => onRosterChanged?.()}
-        />
-      ) : null}
+      {(() => {
+        if (currentUser && weekendModalIso) {
+          return (
+            <WeekendRosterModal
+              open={!!weekendModalIso}
+              dateIso={weekendModalIso}
+              currentUser={currentUser}
+              rosterRows={rosterRowsByDate?.[weekendModalIso] ?? []}
+              onClose={() => setWeekendModalIso(null)}
+              onChanged={() => onRosterChanged?.()}
+            />
+          )
+        }
+        return null
+      })()}
     </section>
   )
 }
