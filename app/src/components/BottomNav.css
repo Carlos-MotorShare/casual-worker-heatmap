@@ -61,6 +61,15 @@
   filter: brightness(0.9) saturate(0.7);
 }
 
+/* Light-mode: invert white icons so they show on light backgrounds */
+[data-theme="light"] .bottomNavIcon {
+  filter: brightness(0) saturate(1);
+}
+
+[data-theme="light"] .bottomNavItem:not(.bottomNavItem--active) .bottomNavIcon {
+  filter: brightness(0) saturate(0.7) opacity(0.55);
+}
+
 .bottomNavLabel {
   font-size: 11px;
   line-height: 1;

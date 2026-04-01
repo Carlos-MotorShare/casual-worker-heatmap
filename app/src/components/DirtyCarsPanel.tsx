@@ -119,11 +119,16 @@ export default function DirtyCarsPanel({ dirtyCars, onCarCleaned, showHeader = t
             >
               <div className="dirtyCarsItemContent">
                 <span className="dirtyCarsItemName">{car.vehicleName}</span>
-                {car.nextPickupDateTime && (
-                  <span className="dirtyCarsItemTime">
-                    {calculateTimeUntilPickup(car.nextPickupDateTime)}
-                  </span>
-                )}
+                {car.nextPickupDateTime && (() => {
+                  const timeText = calculateTimeUntilPickup(car.nextPickupDateTime)
+                  if (!timeText) return null
+                  const suffix = timeText === 'Pickup now' ? '' : ' until next booking.'
+                  return (
+                    <span className="dirtyCarsItemTime">
+                      {timeText}{suffix}
+                    </span>
+                  )
+                })()}
               </div>
               <input
                 ref={(el) => {

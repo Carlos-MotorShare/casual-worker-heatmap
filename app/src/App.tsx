@@ -13,8 +13,12 @@ import { useUserStore } from './stores/useUserStore'
 import BottomNav, { type BottomNavKey } from './components/BottomNav'
 import todayIcon from './assets/logo_white.png'
 import calendarIcon from './assets/calendar.png'
+import eventsIcon from './assets/events_white.png'
+import moonIcon from './assets/moon.png'
+import sunIcon from './assets/sun_white.png'
 import DayDetailPanel from './components/DayDetailPanel'
 import MonthlyCalendar from './components/MonthlyCalendar'
+import { useTheme } from './lib/useTheme'
 
 const API_BASE_URL =
   import.meta.env.REACT_APP_API_URL?.toString().trim() || 'http://localhost:3001'
@@ -43,6 +47,7 @@ function App() {
   const rowsByDate = useRosterStore((s) => s.rowsByDate)
   const loadRosterRange = useRosterStore((s) => s.loadRange)
   const loadAdminUsers = useRosterStore((s) => s.loadAdminUsers)
+  const { theme, toggle: toggleTheme } = useTheme()
   const [scheduleDay, setScheduleDay] = useState<StaffingDay | null>(null)
   const [activeTab, setActiveTab] = useState<BottomNavKey>('today')
   const prevTabRef = useRef<BottomNavKey>('today')
@@ -355,7 +360,7 @@ function App() {
 
   const navItems = useMemo(
     () => [
-      { key: 'events' as const, label: 'Events', iconSrc: calendarIcon },
+      { key: 'events' as const, label: 'Events', iconSrc: eventsIcon },
       { key: 'today' as const, label: 'Today', iconSrc: todayIcon },
       { key: 'calendar' as const, label: 'Calendar', iconSrc: calendarIcon },
     ],
@@ -440,7 +445,23 @@ function App() {
                         {greeting}
                       </p>
                     ) : null}
-                    <h1 style={{ marginBottom: 12 }}>Today</h1>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                      <h1 style={{ marginBottom: 12 }}>Today</h1>
+                      <button
+                        type="button"
+                        className="themeToggleBtn"
+                        onClick={toggleTheme}
+                        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                        title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                      >
+                        <img
+                          src={theme === 'dark' ? sunIcon : moonIcon}
+                          alt=""
+                          aria-hidden="true"
+                          className="themeToggleIcon"
+                        />
+                      </button>
+                    </div>
                     <p style={{ marginBottom: 18, opacity: 0.9 }}>
                       Current-day schedule, roster, and workload.
                     </p>
@@ -456,6 +477,8 @@ function App() {
                       onRosterBlockDeleted={reloadAllRosters}
                       onScheduleClick={() => setScheduleDay(todayDay)}
                       variant="today"
+                      staffColourByLowerName={staffColourByLowerName}
+                      rosterRowsByDate={rowsByDate}
                     />
                   ) : (
                     <div style={{ width: 'min(980px, 100%)', textAlign: 'left' }}>
@@ -528,7 +551,7 @@ function App() {
               stroke="6"
               bgOpacity="0"
               speed="1.6"
-              color="white"
+              color={theme === 'dark' ? 'white' : '#1a1a2e'}
             />
           </div>
         ) : null}

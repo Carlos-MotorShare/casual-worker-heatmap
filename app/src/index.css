@@ -49,6 +49,67 @@
 
 /* Intentionally keeping a single palette-driven theme for now. */
 
+/* ── Light theme override ── */
+[data-theme="light"] {
+  --bg-900: #f5f6fa;
+  --bg-800: #e8eaf0;
+  --bg-danger: #dc2626;
+
+  --bg: var(--bg-900);
+  --text-h: #1a1a2e;
+  --text: #3a3a52;
+  --border: #d0d4e0;
+  --code-bg: #e0e3ec;
+
+  --accent: #1468c8;
+  --accent-bg: color-mix(in srgb, #1468c8, transparent 90%);
+  --accent-border: color-mix(in srgb, #1468c8, transparent 60%);
+  --social-bg: #dfe2ea;
+
+  --shadow:
+    rgba(0, 0, 0, 0.08) 0 8px 20px -8px,
+    rgba(0, 0, 0, 0.04) 0 4px 10px -6px;
+
+  color-scheme: light;
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* Light-mode hover / interactive overrides —
+   In dark mode, hovering mixes a tiny bit of white; in light mode, mix black instead. */
+[data-theme="light"] .rosterDeleteBtn--ghost:hover:not(:disabled),
+[data-theme="light"] .dayModalClose:hover,
+[data-theme="light"] .dayTimelineExpand:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .scheduleModalBtn--ghost:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .bottomNavItem:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .dayModalScheduleBtn {
+  border-color: #c2410c;
+  color: #9a3412;
+}
+[data-theme="light"] .dayModalScheduleBtn:hover {
+  background: rgba(194, 65, 12, 0.1);
+  border-color: #9a3412;
+}
+
+[data-theme="light"] .dayModalRosterRemoveBtn {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: var(--text);
+}
+[data-theme="light"] .dayModalRosterRemoveBtn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.25);
+}
+
 #root {
   width: 1126px;
   max-width: 100%;
@@ -629,6 +690,17 @@ code {
 
 .dayModalStaffAwayList li {
   margin: 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.dayModalStaffAwayDot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border), transparent 40%);
 }
 
 .dayModalCarsBadge {

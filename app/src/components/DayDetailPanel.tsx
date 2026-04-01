@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   canActorRemoveRosterLine,
   isWeekendIso,
@@ -69,7 +70,7 @@ export default function DayDetailPanel({
   variant,
   hasRealData = true,
   rosterRowsByDate,
-  staffColourByLowerName: _staffColourByLowerName,
+  staffColourByLowerName,
 }: DayDetailPanelProps) {
   const titleId = useId()
   const [deleteLine, setDeleteLine] = useState<RosterSummaryLineDetail | null>(null)
@@ -113,9 +114,10 @@ export default function DayDetailPanel({
   const [confirmAssign, setConfirmAssign] = useState<{ userId: string; username: string } | null>(null)
 
   const showAssign = isWeekend && (currentUser?.canRoster === true)
+  const allDayRows = rosterRowsByDate?.[day.date] ?? rosterRows
   const showSelfAssign = isWeekend
     && (currentUser?.admin === true || currentUser?.canRoster === true)
-    && !rosterRows.some((r) => r.userId === currentUser?.id)
+    && !allDayRows.some((r) => r.userId === currentUser?.id)
 
   // Load admin users when weekend panel is shown
   useEffect(() => {
@@ -125,17 +127,22 @@ export default function DayDetailPanel({
     }
   }, [isWeekend, currentUser, adminUsersLoaded, loadAdminUsers])
 
-  const rosteredIds = useMemo(() => new Set(rosterRows.map((r) => r.userId)), [rosterRows])
+  const rosteredIds = useMemo(() => {
+    // Use full roster for the day (including non-admin self-rosters) to prevent duplicates
+    const allRows = rosterRowsByDate?.[day.date] ?? rosterRows
+    return new Set(allRows.map((r) => r.userId))
+  }, [rosterRowsByDate, day.date, rosterRows])
   const assignableWorkers = useMemo(() => {
     if (!currentUser) return []
     return adminUsers.filter((w) => !rosteredIds.has(w.id) && w.id !== currentUser.id)
   }, [adminUsers, rosteredIds, currentUser])
 
   const weekendRosterLines = useMemo(() => {
-    // For weekend days, use the full roster (including admin rows) to show who is working
+    // For weekend days, only show admin users in the weekend roster section
     if (!isWeekend) return []
     const allRows = rosterRowsByDate?.[day.date] ?? rosterRows
-    return rosterSummaryDetailForDay(allRows)
+    const adminOnly = allRows.filter((r) => r.rosterUserIsAdmin === true)
+    return rosterSummaryDetailForDay(adminOnly)
   }, [isWeekend, rosterRowsByDate, day.date, rosterRows])
 
   const saveRosterForUser = async (targetUserId: string) => {
@@ -231,7 +238,14 @@ export default function DayDetailPanel({
       <p className="dayModalStaffLine">Staff away ({awayEntries.length})</p>
       <ul className="dayModalStaffAwayList" aria-label="Staff away list">
         {awayEntries.map((entry) => (
-          <li key={entry.name}>{entry.name} – {entry.reason}</li>
+          <li key={entry.name}>
+            <span
+              className="dayModalStaffAwayDot"
+              style={{ background: staffColourByLowerName?.[entry.name.trim().toLowerCase()] || resolveUserColour(undefined) }}
+              aria-hidden
+            />
+            {entry.name} – {entry.reason}
+          </li>
         ))}
       </ul>
     </div>
@@ -419,7 +433,14 @@ export default function DayDetailPanel({
               <p className="dayModalStaffLine">Staff away ({awayEntries.length})</p>
               <ul className="dayModalStaffAwayList" aria-label="Staff away list">
                 {awayEntries.map((entry) => (
-                  <li key={entry.name}>{entry.name} – {entry.reason}</li>
+                  <li key={entry.name}>
+                    <span
+                      className="dayModalStaffAwayDot"
+                      style={{ background: staffColourByLowerName?.[entry.name.trim().toLowerCase()] || resolveUserColour(undefined) }}
+                      aria-hidden
+                    />
+                    {entry.name} – {entry.reason}
+                  </li>
                 ))}
               </ul>
             </>
@@ -466,54 +487,57 @@ export default function DayDetailPanel({
         }}
       />
 
-      {/* Confirm-assign dialog */}
-      {confirmAssign ? (
-        <div className="rosterDeleteBackdrop" onClick={() => setConfirmAssign(null)}>
-          <div
-            className="rosterDeletePanel"
-            onClick={(e) => e.stopPropagation()}
-            role="alertdialog"
-            aria-label={`Assign ${confirmAssign.username}?`}
-          >
-            <h3 className="rosterDeleteTitle" style={{ textAlign: 'center' }}>
-              Confirm assignment
-            </h3>
-            <p className="rosterDeleteHint" style={{ textAlign: 'center' }}>
-              Assign <strong>{confirmAssign.username}</strong> to{' '}
-              <strong>{formatTitle(day.date)}</strong>?
-            </p>
-            {assignError ? (
-              <p className="rosterDeleteError" role="alert" style={{ textAlign: 'center' }}>
-                {assignError}
-              </p>
-            ) : null}
-            <div className="rosterDeleteActions" style={{ justifyContent: 'center' }}>
-              <button
-                type="button"
-                className="rosterDeleteBtn rosterDeleteBtn--ghost"
-                disabled={assignBusy}
-                onClick={() => {
-                  setConfirmAssign(null)
-                  setAssignError(null)
-                }}
+      {/* Confirm-assign dialog — portalled to body for viewport centering */}
+      {confirmAssign
+        ? createPortal(
+            <div className="rosterDeleteBackdrop" onClick={() => setConfirmAssign(null)}>
+              <div
+                className="rosterDeletePanel"
+                onClick={(e) => e.stopPropagation()}
+                role="alertdialog"
+                aria-label={`Assign ${confirmAssign.username}?`}
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="rosterDeleteBtn rosterDeleteBtn--primary"
-                disabled={assignBusy}
-                onClick={async () => {
-                  await saveRosterForUser(confirmAssign.userId)
-                  if (!assignError) setConfirmAssign(null)
-                }}
-              >
-                {assignBusy ? 'Saving…' : 'Confirm'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+                <h3 className="rosterDeleteTitle" style={{ textAlign: 'center' }}>
+                  Confirm assignment
+                </h3>
+                <p className="rosterDeleteHint" style={{ textAlign: 'center' }}>
+                  Assign <strong>{confirmAssign.username}</strong> to{' '}
+                  <strong>{formatTitle(day.date)}</strong>?
+                </p>
+                {assignError ? (
+                  <p className="rosterDeleteError" role="alert" style={{ textAlign: 'center' }}>
+                    {assignError}
+                  </p>
+                ) : null}
+                <div className="rosterDeleteActions" style={{ justifyContent: 'center' }}>
+                  <button
+                    type="button"
+                    className="rosterDeleteBtn rosterDeleteBtn--ghost"
+                    disabled={assignBusy}
+                    onClick={() => {
+                      setConfirmAssign(null)
+                      setAssignError(null)
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="rosterDeleteBtn rosterDeleteBtn--primary"
+                    disabled={assignBusy}
+                    onClick={async () => {
+                      await saveRosterForUser(confirmAssign.userId)
+                      if (!assignError) setConfirmAssign(null)
+                    }}
+                  >
+                    {assignBusy ? 'Saving…' : 'Confirm'}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   )
 }

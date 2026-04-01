@@ -222,6 +222,8 @@ export default function MonthlyCalendar({
   const [bottomSheetIso, setBottomSheetIso] = useState<string | null>(null)
   const [bottomSheetEntered, setBottomSheetEntered] = useState(false)
   const [heatmapEnabled, setHeatmapEnabled] = useState(true)
+  const [legendOpen, setLegendOpen] = useState(false)
+  const [legendEntered, setLegendEntered] = useState(false)
   const dragRef = useRef<{
     startX: number
     startY: number
@@ -251,6 +253,17 @@ export default function MonthlyCalendar({
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = prev }
   }, [bottomSheetIso])
+
+  /* ── Legend popup enter animation ── */
+  useEffect(() => {
+    if (!legendOpen) {
+      setLegendEntered(false)
+      return
+    }
+    setLegendEntered(false)
+    const id = requestAnimationFrame(() => setLegendEntered(true))
+    return () => cancelAnimationFrame(id)
+  }, [legendOpen])
 
   const weekStartsOnMonday = true
   const currentCells = useMemo(() => buildMonthGrid(month, weekStartsOnMonday), [month])
@@ -489,6 +502,13 @@ export default function MonthlyCalendar({
             </span>
           ) : null}
 
+          {/* Admin-only: casual worker roster indicator 🤝 +N (below soap) */}
+          {isAdmin && casualRosters.length > 0 && c.inMonth ? (
+            <span className="monthCalCasualIndicator" aria-label={`${casualRosters.length} casual worker${casualRosters.length > 1 ? 's' : ''} rostered`}>
+              🤝 +{casualRosters.length}
+            </span>
+          ) : null}
+
           {/* Staff away indicators (admin only) */}
           {isAdmin && awayList.length > 0 ? (
             <div className="monthCalAwayLines" aria-hidden="true">
@@ -544,6 +564,15 @@ export default function MonthlyCalendar({
             aria-label="Next month"
           >
             <span className="monthCalNavGlyph" aria-hidden="true">›</span>
+          </button>
+          <button
+            type="button"
+            className="monthCalLegendBtn"
+            onClick={() => setLegendOpen(true)}
+            aria-label="Calendar legend"
+            title="What do the icons mean?"
+          >
+            ?
           </button>
         </div>
       </div>
@@ -701,6 +730,67 @@ export default function MonthlyCalendar({
                       staffColourByLowerName={staffColourByLowerName}
                     />
                 ) : null}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {/* ── Calendar legend popup ── */}
+      {legendOpen
+        ? createPortal(
+            <div
+              className={`monthCalLegendBackdrop${legendEntered ? ' monthCalLegendBackdrop--visible' : ''}`}
+              onClick={() => setLegendOpen(false)}
+            >
+              <div
+                className={`monthCalLegendPopup${legendEntered ? ' monthCalLegendPopup--visible' : ''}`}
+                onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Calendar icon legend"
+              >
+                <div className="monthCalLegendHeader">
+                  <span className="monthCalLegendTitle">Calendar legend</span>
+                  <button
+                    type="button"
+                    className="monthCalLegendClose"
+                    onClick={() => setLegendOpen(false)}
+                    aria-label="Close legend"
+                  >
+                    ×
+                  </button>
+                </div>
+                <ul className="monthCalLegendList">
+                  <li className="monthCalLegendItem">
+                    <span className="monthCalLegendIcon" aria-hidden="true">🧼 3</span>
+                    <span className="monthCalLegendDesc">Number of cars to wash that day</span>
+                  </li>
+                  <li className="monthCalLegendItem">
+                    <span className="monthCalLegendIcon" aria-hidden="true">🤝 +2</span>
+                    <span className="monthCalLegendDesc">Casual workers rostered (admin only)</span>
+                  </li>
+                  <li className="monthCalLegendItem">
+                    <span className="monthCalLegendIcon monthCalLegendBubble" aria-hidden="true">A</span>
+                    <span className="monthCalLegendDesc">Worker initial — rostered for this day</span>
+                  </li>
+                  <li className="monthCalLegendItem">
+                    <span className="monthCalLegendIcon monthCalLegendBar" aria-hidden="true" />
+                    <span className="monthCalLegendDesc">Coloured bar — staff member away</span>
+                  </li>
+                  <li className="monthCalLegendItem">
+                    <span className="monthCalLegendIcon monthCalLegendHeat monthCalLegendHeat--green" aria-hidden="true" />
+                    <span className="monthCalLegendDesc">Heatmap: low staffing need</span>
+                  </li>
+                  <li className="monthCalLegendItem">
+                    <span className="monthCalLegendIcon monthCalLegendHeat monthCalLegendHeat--amber" aria-hidden="true" />
+                    <span className="monthCalLegendDesc">Heatmap: medium staffing need</span>
+                  </li>
+                  <li className="monthCalLegendItem">
+                    <span className="monthCalLegendIcon monthCalLegendHeat monthCalLegendHeat--red" aria-hidden="true" />
+                    <span className="monthCalLegendDesc">Heatmap: high staffing need</span>
+                  </li>
+                </ul>
               </div>
             </div>,
             document.body,

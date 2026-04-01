@@ -144,6 +144,12 @@
   min-width: 0;
 }
 
+/* Slightly darker calendar background in light mode for better cell contrast */
+[data-theme="light"] .monthCalGrid {
+  background: #dde0e8;
+  border-color: #c8ccd6;
+}
+
 .monthCalGridInner {
   position: relative;
   width: 100%;
@@ -227,6 +233,11 @@
   pointer-events: auto;
 }
 
+[data-theme="light"] .monthCalCell {
+  border-right-color: rgba(0, 0, 0, 0.08);
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
 .monthCalCell:nth-child(7n) {
   border-right: none;
 }
@@ -288,6 +299,18 @@
   color: var(--text-h);
   opacity: 0.8;
   white-space: nowrap;
+}
+
+/* ── Casual worker roster indicator (admin view) ── */
+
+.monthCalCasualIndicator {
+  position: relative;
+  z-index: 2;
+  font-size: 9px;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--text-h);
+  opacity: 0.85;
 }
 
 /* ── Weekend worker name bubbles (top of cell) ── */
@@ -388,6 +411,11 @@
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, #60a5fa, transparent 42%);
 }
 
+[data-theme="light"] .monthCalCell--today {
+  background: color-mix(in srgb, #93c5fd, transparent 72%);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, #3b82f6, transparent 30%);
+}
+
 .monthCalCell--today.monthCalCell--expanded {
   box-shadow:
     inset 0 0 0 1.5px color-mix(in srgb, #60a5fa, transparent 42%),
@@ -467,5 +495,179 @@
 .monthCalExpandedClose:hover {
   background: color-mix(in srgb, var(--white), transparent 90%);
 }
+
+/* ── Legend "?" button ── */
+
+.monthCalLegendBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--mono);
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+.monthCalLegendBtn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  color: var(--text-h);
+}
+
+[data-theme="light"] .monthCalLegendBtn {
+  background: rgba(0, 0, 0, 0.07);
+}
+[data-theme="light"] .monthCalLegendBtn:hover {
+  background: rgba(0, 0, 0, 0.14);
+}
+
+/* ── Legend popup backdrop ── */
+
+.monthCalLegendBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999996;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.monthCalLegendBackdrop--visible {
+  opacity: 1;
+}
+
+/* ── Legend popup panel ── */
+
+.monthCalLegendPopup {
+  background: var(--bg-800);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  width: calc(100% - 48px);
+  max-width: 360px;
+  padding: 0;
+  transform: scale(0.92) translateY(12px);
+  opacity: 0;
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 180ms ease;
+}
+
+.monthCalLegendPopup--visible {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+[data-theme="light"] .monthCalLegendPopup {
+  background: #fff;
+}
+
+/* ── Legend header ── */
+
+.monthCalLegendHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.monthCalLegendTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h);
+  letter-spacing: 0.01em;
+}
+
+.monthCalLegendClose {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 8px;
+  line-height: 1;
+  transition: background 140ms ease;
+}
+
+.monthCalLegendClose:hover {
+  background: color-mix(in srgb, var(--white), transparent 90%);
+}
+
+/* ── Legend item list ── */
+
+.monthCalLegendList {
+  list-style: none;
+  margin: 0;
+  padding: 10px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.monthCalLegendItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.monthCalLegendIcon {
+  flex-shrink: 0;
+  width: 44px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-h);
+}
+
+.monthCalLegendDesc {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+/* ── Legend sample icons ── */
+
+.monthCalLegendBubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #6366f1;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.monthCalLegendBar {
+  display: inline-block;
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: #6366f1;
+}
+
+.monthCalLegendHeat {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+.monthCalLegendHeat--green { background: #16a34a; }
+.monthCalLegendHeat--amber { background: #f59e0b; }
+.monthCalLegendHeat--red   { background: #ef4444; }
 
 /* ── Stacked body variant is in index.css ── */
