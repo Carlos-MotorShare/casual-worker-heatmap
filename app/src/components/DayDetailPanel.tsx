@@ -176,31 +176,64 @@ export default function DayDetailPanel({
 
   const chartSection = (
     <div className="dayModalCol dayModalCol--timeline">
-      <div className="dayModalTimelineRow">
-        <div className="dayModalTimelineMain">
-          <DayTimeline
-            pickupsList={pickupsList}
-            dropoffsList={dropoffsList}
-            rosterRows={rosterRows}
-          />
+      <div className="dayModalChartWithStats">
+        <div className="dayModalChartLeft">
+          <div className="dayModalTimelineMain">
+            <DayTimeline
+              pickupsList={pickupsList}
+              dropoffsList={dropoffsList}
+              rosterRows={rosterRows}
+            />
+          </div>
         </div>
-        {canSchedule ? (
-          <div className="dayModalScheduleWrap">
-            <button
-              type="button"
-              className="dayModalScheduleBtn"
-              onClick={(e) => {
-                e.stopPropagation()
-                onScheduleClick()
-              }}
-            >
-              Tap to schedule
-            </button>
+
+        {hasRealData ? (
+          <div className="dayModalSideStats">
+            <div className="dayModalSideStat">
+              <span className="dayModalSideStatLabel">
+                <span className="dayModalLegendDot dayModalLegendDot--pickup" aria-hidden />
+                Pickups
+              </span>
+              <span className="dayModalSideStatValue">{day.pickups}</span>
+            </div>
+            <div className="dayModalSideStat">
+              <span className="dayModalSideStatLabel">
+                <span className="dayModalLegendDot dayModalLegendDot--dropoff" aria-hidden />
+                Dropoffs
+              </span>
+              <span className="dayModalSideStatValue">{day.dropoffs}</span>
+            </div>
+            <div className="dayModalSideStat">
+              <span className="dayModalSideStatLabel">
+                <span className="dayModalCarsEmoji" aria-hidden="true">🧼</span>
+                To wash
+              </span>
+              <span className="dayModalSideStatValue">
+                {day.carsToWash || 0}
+              </span>
+            </div>
           </div>
         ) : null}
       </div>
+
+      {canSchedule ? (
+        <div className="dayModalScheduleWrap dayModalScheduleWrap--fullWidth">
+          <button
+            type="button"
+            className="dayModalScheduleBtn"
+            onClick={(e) => {
+              e.stopPropagation()
+              onScheduleClick()
+            }}
+          >
+            Tap to schedule
+          </button>
+        </div>
+      ) : null}
+
       {rosterSummaryDetail.length > 0 ? (
         <div className="dayModalRosterSummary" aria-label="Who is rostered">
+          <p style={{ fontWeight: 400, marginBottom: 10, fontSize: 14 }}>Casual workers</p>
           {rosterSummaryDetail.map((line) => (
             <div key={line.userId} className="dayModalRosterSummaryLine">
               <div className="dayModalRosterSummaryText">
@@ -211,21 +244,21 @@ export default function DayDetailPanel({
                 />
                 <span className="dayModalRosterSummaryName">{line.username}</span>
                 <span className="dayModalRosterSummaryRanges">{line.rangesDisplay}</span>
+                {canActorRemoveRosterLine(line, currentUser) ? (
+                  <button
+                    type="button"
+                    className="dayModalRosterRemoveBtn"
+                    aria-label={`Remove a shift for ${line.username}`}
+                    title="Remove a shift"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDeleteLine(line)
+                    }}
+                  >
+                    ×
+                  </button>
+                ) : null}
               </div>
-              {canActorRemoveRosterLine(line, currentUser) ? (
-                <button
-                  type="button"
-                  className="dayModalRosterRemoveBtn"
-                  aria-label={`Remove a shift for ${line.username}`}
-                  title="Remove a shift"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setDeleteLine(line)
-                  }}
-                >
-                  ×
-                </button>
-              ) : null}
             </div>
           ))}
         </div>
@@ -270,21 +303,21 @@ export default function DayDetailPanel({
                 />
                 <span className="dayModalRosterSummaryName">{line.username}</span>
                 <span className="dayModalRosterSummaryRanges">{line.rangesDisplay}</span>
+                {canActorRemoveRosterLine(line, currentUser) ? (
+                  <button
+                    type="button"
+                    className="dayModalRosterRemoveBtn"
+                    aria-label={`Remove a shift for ${line.username}`}
+                    title="Remove a shift"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDeleteLine(line)
+                    }}
+                  >
+                    ×
+                  </button>
+                ) : null}
               </div>
-              {canActorRemoveRosterLine(line, currentUser) ? (
-                <button
-                  type="button"
-                  className="dayModalRosterRemoveBtn"
-                  aria-label={`Remove a shift for ${line.username}`}
-                  title="Remove a shift"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setDeleteLine(line)
-                  }}
-                >
-                  ×
-                </button>
-              ) : null}
             </div>
           ))}
         </div>
@@ -334,36 +367,8 @@ export default function DayDetailPanel({
     </div>
   ) : null
 
-  /** Full-width stats row for stacked (today / expanded) layouts. */
-  const statsRowSection = (
-    <div className="dayModalStatsGroup">
-      <div className="dayModalStatsRow">
-        <div className="dayModalStat">
-          <span className="dayModalStatLabelWithLegend">
-            <span className="dayModalLegendDot dayModalLegendDot--pickup" aria-hidden />
-            Pickups
-          </span>
-          <span className="dayModalStatValue dayModalStatValue--sm">{day.pickups}</span>
-        </div>
-        <div className="dayModalStat">
-          <span className="dayModalStatLabelWithLegend">
-            <span className="dayModalLegendDot dayModalLegendDot--dropoff" aria-hidden />
-            Dropoffs
-          </span>
-          <span className="dayModalStatValue dayModalStatValue--sm">{day.dropoffs}</span>
-        </div>
-      </div>
-      <div className="dayModalCarsRow">
-        <span className="dayModalCarsEmoji" aria-hidden="true">🧼</span>
-        <span className="dayModalCarsLabel">
-          {day.carsToWash || 0} {(day.carsToWash ?? 0) === 1 ? 'car' : 'cars'} to wash
-        </span>
-      </div>
-    </div>
-  )
-
   const dirtyCarsSection = dirtyCars.length > 0 ? (
-    <div className="dayModalSection">
+    <div className="dayModalSection dayModalDirtyCarsFullWidth">
       <DirtyCarsPanel
         dirtyCars={dirtyCars}
         showHeader={true}
@@ -376,11 +381,10 @@ export default function DayDetailPanel({
 
   const renderBody = () => {
     if (variant === 'today') {
-      // Today: chart → stats → weekend roster → staff away → dirty cars
+      // Today: chart (with stats) → weekend roster → staff away → dirty cars
       return (
         <div className="dayModalBody dayModalBody--stacked">
           {chartSection}
-          {statsRowSection}
           {weekendRosterSection}
           {staffAwaySection}
           {dirtyCarsSection}
@@ -389,18 +393,49 @@ export default function DayDetailPanel({
     }
 
     if (variant === 'expanded') {
-      // Expanded (from calendar bottom sheet): chart → stats → staff away → weekend roster
+      // Expanded (from calendar bottom sheet): chart (with stats) → staff away → weekend roster
       return (
         <div className="dayModalBody dayModalBody--stacked">
           {hasRealData ? (
-            <>
-              {chartSection}
-              {statsRowSection}
-            </>
+            chartSection
           ) : (
-            <p style={{ opacity: 0.6, fontSize: 14, margin: '4px 0 12px', textAlign: 'center' }}>
-              No data available for this day.
-            </p>
+            <>
+              <p style={{ opacity: 0.6, fontSize: 14, margin: '4px 0 12px', textAlign: 'center' }}>
+                No data available for this day.
+              </p>
+              {rosterSummaryDetail.length > 0 ? (
+                <div className="dayModalRosterSummary" aria-label="Who is rostered" style={{ marginTop: 0, borderTop: 'none', paddingTop: 0 }}>
+                  <p style={{ fontWeight: 400, marginBottom: 10, fontSize: 14 }}>Casual workers</p>
+                  {rosterSummaryDetail.map((line) => (
+                    <div key={line.userId} className="dayModalRosterSummaryLine">
+                      <div className="dayModalRosterSummaryText">
+                        <span
+                          className="dayModalRosterSummaryColour"
+                          style={{ background: resolveUserColour(line.colour) }}
+                          aria-hidden
+                        />
+                        <span className="dayModalRosterSummaryName">{line.username}</span>
+                        <span className="dayModalRosterSummaryRanges">{line.rangesDisplay}</span>
+                        {canActorRemoveRosterLine(line, currentUser) ? (
+                          <button
+                            type="button"
+                            className="dayModalRosterRemoveBtn"
+                            aria-label={`Remove a shift for ${line.username}`}
+                            title="Remove a shift"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDeleteLine(line)
+                            }}
+                          >
+                            ×
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </>
           )}
           {staffAwaySection}
           {weekendRosterSection}

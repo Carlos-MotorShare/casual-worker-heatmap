@@ -278,6 +278,11 @@ export default function MonthlyCalendar({
   )
 
   const todayIso = useMemo(() => isoDateLocal(new Date()), [])
+  const yesterdayIso = useMemo(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 1)
+    return isoDateLocal(d)
+  }, [])
 
   const weekdays = weekStartsOnMonday
     ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -389,7 +394,7 @@ export default function MonthlyCalendar({
         staffAwayCount: 0,
       }
     : null
-  const sheetDayHasRealData = sheetDayReal !== null
+  const sheetDayHasRealData = sheetDayReal !== null && bottomSheetIso !== yesterdayIso
   const sheetDayRosterRows = bottomSheetIso
     ? rosterRowsForHeatmap(rosterRowsByDate?.[bottomSheetIso] ?? [])
     : []
@@ -495,8 +500,8 @@ export default function MonthlyCalendar({
             </div>
           ) : null}
 
-          {/* Cars to wash (visible for all users when data exists) */}
-          {dayData && c.inMonth ? (
+          {/* Cars to wash (visible for all users when data exists, hidden for yesterday) */}
+          {dayData && c.inMonth && c.iso !== yesterdayIso ? (
             <span className="monthCalCarsCount" aria-label={`${dayData.carsToWash} cars to wash`}>
               🧼 {dayData.carsToWash}
             </span>

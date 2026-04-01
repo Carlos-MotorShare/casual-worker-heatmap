@@ -303,6 +303,7 @@ code {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
 }
 
 .dayModalStatsRow {
@@ -346,6 +347,15 @@ code {
   overflow: visible;
 }
 
+/* On small screens, columns stretch to full parent width */
+@media (max-width: 500px) {
+  .dayModalCol--timeline,
+  .dayModalCol--stats {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 .dayModalTimelineRow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -362,6 +372,62 @@ code {
 .dayModalTimelineMain {
   min-width: 0;
   overflow: visible;
+}
+
+/* Chart + side stats: horizontal flex layout */
+.dayModalChartWithStats {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.dayModalChartLeft {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.dayModalSideStats {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 90px;
+  padding-top: 2px;
+}
+
+.dayModalSideStat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dayModalSideStatLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: color-mix(in srgb, var(--text-h), var(--text) 35%);
+}
+
+.dayModalSideStatValue {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+@media (max-width: 340px) {
+  .dayModalChartWithStats {
+    flex-direction: column;
+  }
+  .dayModalSideStats {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
 }
 
 .dayModalRosterSummary {
@@ -618,6 +684,12 @@ code {
   }
 }
 
+.dayModalScheduleWrap--fullWidth {
+  width: 100%;
+  margin-top: 20px;
+  padding-top: 0;
+}
+
 .dayModalScheduleBtn {
   flex-shrink: 0;
   border-radius: 12px;
@@ -740,7 +812,7 @@ code {
   gap: 8px 10px;
   align-items: stretch;
   width: 100%;
-  max-width: min(360px, 100%);
+  max-width: min(340px, 100%);
   overflow: visible;
 }
 
@@ -974,6 +1046,19 @@ code {
   grid-row: 1;
   margin: 0;
   font-size: 11px;
-  white-space: nowrap;
+  white-space: normal;
   color: color-mix(in srgb, var(--text-h), var(--text) 40%);
+}
+
+.dayModalDirtyCarsFullWidth {
+  width: 100%;
+  max-width: 100%;
+  margin-top: 12px; /* optional spacing from above section */
+}
+
+.dayModalStatsMerged {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
 }
