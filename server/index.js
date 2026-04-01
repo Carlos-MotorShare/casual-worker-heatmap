@@ -743,11 +743,8 @@ app.post("/api/rosters", async (req, res) => {
       if (!weekend) {
         return res.status(403).json({ error: "Admins can only self-roster on weekends." });
       }
-    } else if (weekend) {
-      return res.status(403).json({
-        error: "Weekend shifts for staff are set from the Calendar tab.",
-      });
     }
+    // Non-admin users may self-roster on any day (weekday or weekend).
     const { error: deleteError } = await supabase
       .from("rosters")
       .delete()

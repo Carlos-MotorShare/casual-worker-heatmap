@@ -1,6 +1,6 @@
 import './BottomNav.css'
 
-export type BottomNavKey = 'roster' | 'today' | 'calendar'
+export type BottomNavKey = 'events' | 'today' | 'calendar'
 
 export type BottomNavItem = {
   key: BottomNavKey

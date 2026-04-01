@@ -67,6 +67,56 @@
   outline-offset: 2px;
 }
 
+/* ── Heatmap toggle (admin only) ── */
+
+.monthCalHeatToggle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.monthCalHeatLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-h);
+  cursor: pointer;
+  user-select: none;
+}
+
+.monthCalHeatCheckbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.monthCalHeatLegend {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.monthCalHeatLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.monthCalHeatSwatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid color-mix(in srgb, var(--bg-900), transparent 78%);
+}
+
+/* ── Weekday header ── */
+
 .monthCalWeekdays {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -82,23 +132,29 @@
   text-align: center;
 }
 
+/* ── Grid container ── */
+
 .monthCalGrid {
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--border), transparent 15%);
   background: color-mix(in srgb, var(--bg-800), var(--bg-900) 35%);
   box-shadow: var(--shadow);
   overflow: hidden;
-  /* Faster taps on mobile; still allows panning within the page */
   touch-action: manipulation;
   min-width: 0;
 }
 
-/* 7×6 grid of square cells: height = width × 6/7 — avoids a clipped/partial bottom row */
 .monthCalGridInner {
   position: relative;
   width: 100%;
-  aspect-ratio: 7 / 6;
+  aspect-ratio: 7 / 7.5;
   min-height: 0;
+}
+
+@media (min-width: 600px) {
+  .monthCalGridInner {
+    aspect-ratio: 7 / 7;
+  }
 }
 
 .monthCalLayer {
@@ -157,13 +213,14 @@
   opacity: 1;
 }
 
+/* ── Individual cells ── */
+
 .monthCalCell {
   min-height: 0;
   min-width: 0;
   border-right: 1px solid color-mix(in srgb, var(--border), transparent 55%);
   border-bottom: 1px solid color-mix(in srgb, var(--border), transparent 55%);
   box-sizing: border-box;
-  /* overflow visible so joined away lines can reach the cell edge (no negative-margin clipping) */
   overflow: visible;
   position: relative;
   cursor: pointer;
@@ -178,12 +235,32 @@
   border-bottom: none;
 }
 
+.monthCalCell--expanded {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
 .monthCalCellInner {
   width: 100%;
   height: 100%;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  padding: 3px 2px;
+  box-sizing: border-box;
   position: relative;
+  pointer-events: none;
+}
+
+/* ── Heatmap background overlay ── */
+
+.monthCalCellHeatBg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.45;
+  border-radius: 0;
   pointer-events: none;
 }
 
@@ -191,17 +268,74 @@
   position: relative;
   z-index: 2;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-h);
   opacity: 0.95;
+  line-height: 1.2;
 }
+
+.monthCalCell--out .monthCalDayNum {
+  opacity: 0.32;
+}
+
+/* ── Cars to wash count ── */
+
+.monthCalCarsCount {
+  position: relative;
+  z-index: 2;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-h);
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+/* ── Weekend worker name bubbles (top of cell) ── */
+
+.monthCalWeekendBubbles {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  justify-content: center;
+  width: 100%;
+  padding: 0 1px;
+  box-sizing: border-box;
+}
+
+.monthCalWeekendBubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 700;
+  color: #fff;
+  text-transform: uppercase;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+@media (min-width: 600px) {
+  .monthCalWeekendBubble {
+    width: 20px;
+    height: 20px;
+    font-size: 9px;
+  }
+}
+
+/* ── Staff-away indicator lines ── */
 
 .monthCalAwayLines {
   position: absolute;
   z-index: 1;
   left: 0;
   right: 0;
-  bottom: 6px;
+  bottom: 4px;
   box-sizing: border-box;
   display: grid;
   gap: 2px;
@@ -213,14 +347,20 @@
   box-sizing: border-box;
   justify-self: stretch;
   height: 3px;
-  margin-left: 8px;
-  margin-right: 8px;
+  margin-left: 4px;
+  margin-right: 4px;
   border-radius: 999px;
   box-shadow: 0 1px 0 color-mix(in srgb, var(--bg-900), transparent 65%);
   opacity: 0.95;
 }
 
-/* Join consecutive calendar days: extend to shared cell edge (no negative margins — not clipped) */
+@media (min-width: 600px) {
+  .monthCalAwayLine {
+    margin-left: 8px;
+    margin-right: 8px;
+  }
+}
+
 .monthCalAwayLine--connectL {
   margin-left: 0;
 }
@@ -240,6 +380,21 @@
 .monthCalAwayLine--connectR:not(.monthCalAwayLine--connectL) {
   border-radius: 999px 0 0 999px;
 }
+
+/* ── Today highlight ── */
+
+.monthCalCell--today {
+  background: color-mix(in srgb, #93c5fd, transparent 94%);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, #60a5fa, transparent 42%);
+}
+
+.monthCalCell--today.monthCalCell--expanded {
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, #60a5fa, transparent 42%),
+    inset 0 0 0 3px var(--accent);
+}
+
+/* ── Staff-away tooltip ── */
 
 .monthCalTip {
   position: fixed;
@@ -275,73 +430,42 @@
   color: color-mix(in srgb, var(--text-h), var(--text) 10%);
 }
 
-.monthCalCell--out .monthCalDayNum {
-  opacity: 0.32;
+/* ── Expanded day panel below grid ── */
+
+.monthCalExpandedDay {
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 15%);
+  background: color-mix(in srgb, var(--bg-800), var(--bg-900) 35%);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  animation: monthCalExpandIn 200ms ease;
 }
 
-/* Light blue stroke for “today”; keep fill very subtle */
-.monthCalCell--today {
-  background: color-mix(in srgb, #93c5fd, transparent 94%);
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, #60a5fa, transparent 42%);
+@keyframes monthCalExpandIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.monthCalModeToggle {
-  justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--border), transparent 28%);
-  background: color-mix(in srgb, var(--white), transparent 95%);
-}
-
-.monthCalModeBtn {
+.monthCalExpandedClose {
   border: 0;
   background: transparent;
-  color: color-mix(in srgb, var(--text-h), var(--text) 30%);
-  padding: 8px 12px;
-  border-radius: 9px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.1px;
+  color: var(--text-h);
+  font-size: 20px;
   cursor: pointer;
-  transition: background 140ms ease, color 140ms ease;
+  padding: 4px 8px;
+  border-radius: 8px;
+  line-height: 1;
+  transition: background 140ms ease;
 }
 
-.monthCalModeBtn:hover {
+.monthCalExpandedClose:hover {
   background: color-mix(in srgb, var(--white), transparent 90%);
 }
 
-.monthCalModeBtn--active {
-  color: var(--text-h);
-  background: color-mix(in srgb, var(--accent), transparent 82%);
-}
-
-.monthCalWeekendHint {
-  margin: 0;
-  font-size: 12px;
-  color: color-mix(in srgb, var(--text-h), var(--text) 38%);
-  padding-left: 2px;
-}
-
-.monthCalCell--weekendEmpty {
-  box-shadow: inset 0 0 0 2px rgba(248, 113, 113, 0.42);
-}
-
-.monthCalCell--weekendStaffed {
-  box-shadow: inset 0 0 0 2px rgba(74, 222, 128, 0.5);
-}
-
-.monthCalCell--today.monthCalCell--weekendEmpty {
-  box-shadow:
-    inset 0 0 0 1.5px color-mix(in srgb, #60a5fa, transparent 42%),
-    inset 0 0 0 3px rgba(248, 113, 113, 0.42);
-}
-
-.monthCalCell--today.monthCalCell--weekendStaffed {
-  box-shadow:
-    inset 0 0 0 1.5px color-mix(in srgb, #60a5fa, transparent 42%),
-    inset 0 0 0 3px rgba(74, 222, 128, 0.5);
-}
-
+/* ── Stacked body variant is in index.css ── */

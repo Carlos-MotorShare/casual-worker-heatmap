@@ -1,15 +1,17 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
 import './MonthlyCalendar.css'
-import WeekendRosterModal from './WeekendRosterModal'
+import DayDetailPanel from './DayDetailPanel'
 import type { RosterRow, User } from '../lib/rosterTypes'
+import type { DirtyCar, StaffingDay } from '../staffingDay'
+import { calculateStaffingPressureScoreRaw } from '../staffingDay'
+import { rosterRowsForHeatmap } from '../lib/rosterHelpers'
 
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1)
@@ -39,12 +41,6 @@ export type StaffAway = {
   reason: string
 }
 
-type TooltipLine = {
-  key: string
-  text: string
-  color: string
-}
-
 function buildMonthGrid(anchorMonth: Date, weekStartsOnMonday: boolean): Cell[] {
   const monthStart = startOfMonth(anchorMonth)
   const monthEnd = new Date(anchorMonth.getFullYear(), anchorMonth.getMonth() + 1, 0)
@@ -70,12 +66,15 @@ function buildMonthGrid(anchorMonth: Date, weekStartsOnMonday: boolean): Cell[] 
 export type MonthlyCalendarProps = {
   initialMonth?: Date
   onMonthChange?: (month: Date) => void
+  days?: StaffingDay[]
   staffsAway?: StaffAway[]
+  dirtyCars?: DirtyCar[]
   /** Lowercased username → CSS colour (from `/api/staff-colours`). */
   staffColourByLowerName?: Record<string, string>
   rosterRowsByDate?: Record<string, RosterRow[]>
   currentUser?: User | null
   onRosterChanged?: () => void
+  onScheduleRequest?: (day: StaffingDay) => void
 }
 
 function isoDayOnly(iso: string) {
@@ -105,21 +104,6 @@ function isAwayOnDate(sa: StaffAway, iso: string): boolean {
   return isoDayOnly(sa.startDate) <= d && isoDayOnly(sa.endDate) >= d
 }
 
-function clamp01(n: number) {
-  return Math.max(0, Math.min(1, n))
-}
-
-function fixedTipFromRect(r: DOMRect) {
-  const pad = 10
-  const width = 220
-  const left =
-    pad +
-    clamp01((r.left + r.width / 2 - width / 2 - pad) / (window.innerWidth - 2 * pad - width)) *
-      (window.innerWidth - 2 * pad - width)
-  const top = r.bottom + 10
-  return { top, left, width }
-}
-
 function isWeekendCellDate(d: Date) {
   const day = d.getDay()
   return day === 0 || day === 6
@@ -138,16 +122,18 @@ function uniqueAdminRosterRows(rows: RosterRow[] | undefined): RosterRow[] {
   return out
 }
 
-function weekendStrokeKind(
-  iso: string,
-  rows: RosterRow[] | undefined,
-  inMonth: boolean,
-): 'empty' | 'staffed' | null {
-  if (!inMonth) return null
-  const d = parseIsoDateLocal(iso)
-  if (!isWeekendCellDate(d)) return null
-  const staffed = (rows ?? []).length
-  return staffed > 0 ? 'staffed' : 'empty'
+/** Non-admin roster rows (casual self-roster), deduplicated by userId. */
+function uniqueNonAdminRosterRows(rows: RosterRow[] | undefined): RosterRow[] {
+  if (!rows?.length) return []
+  const seen = new Set<string>()
+  const out: RosterRow[] = []
+  for (const r of rows) {
+    if (r.rosterUserIsAdmin === true) continue
+    if (seen.has(r.userId)) continue
+    seen.add(r.userId)
+    out.push(r)
+  }
+  return out
 }
 
 function hashStringToInt(s: string) {
@@ -192,25 +178,50 @@ function colorForStaffName(
   return FALLBACK_STAFF_PALETTE[idx] ?? '#ffffff'
 }
 
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n))
+}
+
+/* ── Heatmap colour helpers ── */
+function colorForScore(score0to100: number) {
+  const s = clamp(score0to100, 0, 100)
+  if (s <= 33) return '#16a34a' // green
+  if (s <= 66) return '#f59e0b' // amber
+  return '#ef4444' // red
+}
+
+function heatmapBgStyle(score0to100: number) {
+  const base = colorForScore(score0to100)
+  return {
+    background: [
+      `radial-gradient(140% 120% at 15% 15%, color-mix(in srgb, ${base}, white 37%) 0%, color-mix(in srgb, ${base}, white 50%) 40%, color-mix(in srgb, ${base}, white 60%) 100%)`,
+      `radial-gradient(100% 80% at 85% 85%, color-mix(in srgb, ${base}, black 8%) 0%, transparent 60%)`,
+      'linear-gradient(180deg, rgba(255,255,255,0.25), rgba(255,255,255,0.05))',
+      'linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.015))',
+    ].join(', '),
+  }
+}
+
 export default function MonthlyCalendar({
   initialMonth,
   onMonthChange,
+  days = [],
   staffsAway = [],
+  dirtyCars: _dirtyCarsUnused = [],
   staffColourByLowerName,
   rosterRowsByDate,
   currentUser = null,
   onRosterChanged,
+  onScheduleRequest,
 }: MonthlyCalendarProps) {
+  const isAdmin = currentUser?.admin === true
   const [month, setMonth] = useState<Date>(() => startOfMonth(initialMonth ?? new Date()))
   const [incomingMonth, setIncomingMonth] = useState<Date | null>(null)
   const [transitionDir, setTransitionDir] = useState<1 | -1>(1)
   const [isAnimating, setIsAnimating] = useState(false)
-  const [calendarMode, setCalendarMode] = useState<'staff_leave' | 'weekend_work'>('staff_leave')
-  const [weekendModalIso, setWeekendModalIso] = useState<string | null>(null)
-  const [activeTipIso, setActiveTipIso] = useState<string | null>(null)
-  const [fixedTip, setFixedTip] = useState<{ top: number; left: number; width: number } | null>(
-    null,
-  )
+  const [bottomSheetIso, setBottomSheetIso] = useState<string | null>(null)
+  const [bottomSheetEntered, setBottomSheetEntered] = useState(false)
+  const [heatmapEnabled, setHeatmapEnabled] = useState(true)
   const dragRef = useRef<{
     startX: number
     startY: number
@@ -223,9 +234,23 @@ export default function MonthlyCalendar({
     onMonthChange?.(month)
   }, [month, onMonthChange])
 
+  /* ── Bottom sheet enter animation ── */
   useEffect(() => {
-    if (calendarMode !== 'weekend_work') setWeekendModalIso(null)
-  }, [calendarMode])
+    if (!bottomSheetIso) {
+      setBottomSheetEntered(false)
+      return
+    }
+    setBottomSheetEntered(false)
+    const id = requestAnimationFrame(() => setBottomSheetEntered(true))
+    return () => cancelAnimationFrame(id)
+  }, [bottomSheetIso])
+
+  useEffect(() => {
+    if (!bottomSheetIso) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [bottomSheetIso])
 
   const weekStartsOnMonday = true
   const currentCells = useMemo(() => buildMonthGrid(month, weekStartsOnMonday), [month])
@@ -244,6 +269,31 @@ export default function MonthlyCalendar({
   const weekdays = weekStartsOnMonday
     ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+  /* ── Days data indexed by ISO ── */
+  const dayByIso = useMemo(() => {
+    const map: Record<string, StaffingDay> = {}
+    for (const d of days) map[d.date] = d
+    return map
+  }, [days])
+
+  /* ── Heatmap scoring (normalized across visible days) ── */
+  const heatmapScoreByIso = useMemo(() => {
+    if (days.length === 0) return {} as Record<string, number>
+    // If days[0] is today, include it; otherwise skip it (it's a stale "yesterday" row)
+    const scored = days[0]?.date === todayIso ? days : days.slice(1)
+    if (scored.length === 0) return {} as Record<string, number>
+    const raws = scored.map((d) => calculateStaffingPressureScoreRaw(d))
+    const minRaw = Math.min(...raws)
+    const maxRaw = Math.max(...raws)
+    const denom = maxRaw - minRaw
+    const out: Record<string, number> = {}
+    scored.forEach((d, idx) => {
+      const raw = raws[idx] ?? 0
+      out[d.date] = denom <= 0 ? 0 : Math.round(clamp(((raw - minRaw) / denom) * 100, 0, 100))
+    })
+    return out
+  }, [days, todayIso])
 
   const currentAwayByIso = useMemo(() => {
     const start = currentCells[0]?.date ? new Date(currentCells[0].date) : startOfMonth(month)
@@ -280,55 +330,13 @@ export default function MonthlyCalendar({
     return out
   }, [staffsAway, currentCells, month])
 
-  const updateFixedTip = useCallback(() => {
-    if (!activeTipIso) {
-      setFixedTip(null)
-      return
-    }
-    const el = document.querySelector(`[data-monthcal-iso="${CSS.escape(activeTipIso)}"]`)
-    if (!el) {
-      setFixedTip(null)
-      return
-    }
-    const r = (el as HTMLElement).getBoundingClientRect()
-    setFixedTip(fixedTipFromRect(r))
-  }, [activeTipIso])
-
-  /* Measure before paint so the first tap shows the tooltip (useEffect runs too late). */
-  useLayoutEffect(() => {
-    updateFixedTip()
-  }, [activeTipIso, updateFixedTip])
-
-  useEffect(() => {
-    if (!activeTipIso) return
-    const onMove = () => updateFixedTip()
-    window.addEventListener('scroll', onMove, true)
-    window.addEventListener('resize', onMove)
-    return () => {
-      window.removeEventListener('scroll', onMove, true)
-      window.removeEventListener('resize', onMove)
-    }
-  }, [activeTipIso, updateFixedTip])
-
-  const activeTipLines = useMemo((): TooltipLine[] => {
-    if (!activeTipIso) return []
-    const hits = currentAwayByIso.get(activeTipIso) ?? []
-    return hits.map((sa) => ({
-      key: `${sa.staffName}-${sa.startDate}-${sa.endDate}-${sa.reason}`,
-      text: `${sa.staffName} — ${sa.reason}`,
-      color: colorForStaffName(sa.staffName, staffColourByLowerName, rosterRowsByDate),
-    }))
-  }, [activeTipIso, currentAwayByIso, rosterRowsByDate, staffColourByLowerName])
-
-  const hasActiveTip = activeTipLines.length > 0
-
   const runMonthTransition = (delta: number) => {
     if (isAnimating) return
     const next = addMonths(month, delta)
     setTransitionDir(delta > 0 ? 1 : -1)
     setIncomingMonth(next)
     requestAnimationFrame(() => setIsAnimating(true))
-    setActiveTipIso(null)
+    setBottomSheetIso(null)
   }
 
   useEffect(() => {
@@ -347,6 +355,173 @@ export default function MonthlyCalendar({
     runMonthTransition(deltaX < 0 ? 1 : -1)
   }
 
+  /* ── Cell interaction ── */
+  const handleCellTap = useCallback((c: Cell) => {
+    if (!c.inMonth) return
+    // All days (weekday + weekend) → open bottom sheet day panel
+    setBottomSheetIso((prev) => (prev === c.iso ? null : c.iso))
+  }, [])
+
+  /* ── Bottom sheet day data ── */
+  const sheetDayReal = bottomSheetIso ? dayByIso[bottomSheetIso] ?? null : null
+  /** Synthesize a minimal StaffingDay for days with no SSE data so
+   *  weekend roster + absence sections still render. */
+  const sheetDay: StaffingDay | null = bottomSheetIso
+    ? sheetDayReal ?? {
+        date: bottomSheetIso,
+        pickups: 0,
+        dropoffs: 0,
+        carsToWash: 0,
+        staffAwayWeighted: 0,
+        staffAwayCount: 0,
+      }
+    : null
+  const sheetDayHasRealData = sheetDayReal !== null
+  const sheetDayRosterRows = bottomSheetIso
+    ? rosterRowsForHeatmap(rosterRowsByDate?.[bottomSheetIso] ?? [])
+    : []
+  const canScheduleSheet = Boolean(
+    currentUser && currentUser.admin !== true && bottomSheetIso,
+  )
+
+  /* ── Render a single calendar cell ── */
+  const renderCell = (c: Cell, layerPrefix: string) => {
+    const awayList = currentAwayByIso.get(c.iso) ?? []
+    const weekendAdmins = uniqueAdminRosterRows(rosterRowsByDate?.[c.iso])
+    const casualRosters = uniqueNonAdminRosterRows(rosterRowsByDate?.[c.iso])
+    const dayData = dayByIso[c.iso]
+    const heatScore = heatmapScoreByIso[c.iso]
+    const showHeatmap = isAdmin && heatmapEnabled && heatScore !== undefined && c.inMonth
+    const isExpanded = c.iso === bottomSheetIso
+
+    return (
+      <div
+        key={`${layerPrefix}-${c.iso}`}
+        className={[
+          'monthCalCell',
+          c.inMonth ? 'monthCalCell--in' : 'monthCalCell--out',
+          c.iso === todayIso ? 'monthCalCell--today' : '',
+          isExpanded ? 'monthCalCell--expanded' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        role="gridcell"
+        tabIndex={0}
+        aria-label={c.iso}
+        data-monthcal-iso={c.iso}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleCellTap(c)
+          }
+        }}
+        onPointerUp={(e) => {
+          if (e.button !== 0) return
+          const s = dragRef.current
+          if (s.active && s.pointerId !== e.pointerId) return
+          const dx = e.clientX - s.startX
+          if (s.blocked) return
+          if (Math.abs(dx) >= 60) return
+
+          e.stopPropagation()
+          e.preventDefault()
+
+          handleCellTap(c)
+        }}
+      >
+        {/* Heatmap background for admin */}
+        {showHeatmap ? (
+          <div className="monthCalCellHeatBg" style={heatmapBgStyle(heatScore)} />
+        ) : null}
+
+        <div className="monthCalCellInner">
+          {/* Day number always at top */}
+          <span className="monthCalDayNum">{c.date.getDate()}</span>
+
+          {/* Weekend worker name bubbles below date */}
+          {isWeekendCellDate(c.date) && weekendAdmins.length > 0 && c.inMonth ? (
+            <div className="monthCalWeekendBubbles" aria-label="Weekend workers">
+              {weekendAdmins.map((r) => (
+                <span
+                  key={`wb-${c.iso}-${r.userId}`}
+                  className="monthCalWeekendBubble"
+                  style={{
+                    background: colorForStaffName(
+                      r.username,
+                      staffColourByLowerName,
+                      rosterRowsByDate,
+                    ),
+                  }}
+                  title={r.username}
+                >
+                  {r.username.charAt(0).toUpperCase()}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          {/* Non-admin (casual) self-roster bubbles — visible only for non-admin users */}
+          {!isAdmin && casualRosters.length > 0 && c.inMonth ? (
+            <div className="monthCalWeekendBubbles" aria-label="Rostered workers">
+              {casualRosters.map((r) => (
+                <span
+                  key={`cb-${c.iso}-${r.userId}`}
+                  className="monthCalWeekendBubble"
+                  style={{
+                    background: colorForStaffName(
+                      r.username,
+                      staffColourByLowerName,
+                      rosterRowsByDate,
+                    ),
+                  }}
+                  title={r.username}
+                >
+                  {r.username.charAt(0).toUpperCase()}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          {/* Cars to wash (visible for all users when data exists) */}
+          {dayData && c.inMonth ? (
+            <span className="monthCalCarsCount" aria-label={`${dayData.carsToWash} cars to wash`}>
+              🧼 {dayData.carsToWash}
+            </span>
+          ) : null}
+
+          {/* Staff away indicators (admin only) */}
+          {isAdmin && awayList.length > 0 ? (
+            <div className="monthCalAwayLines" aria-hidden="true">
+              {awayList.map((sa) => {
+                const connectLeft = isAwayOnDate(sa, isoAddDays(c.iso, -1))
+                const connectRight = isAwayOnDate(sa, isoAddDays(c.iso, 1))
+                return (
+                  <span
+                    key={`${c.iso}-${sa.staffName}-${sa.startDate}-${sa.endDate}-${sa.reason}`}
+                    className={[
+                      'monthCalAwayLine',
+                      connectLeft ? 'monthCalAwayLine--connectL' : '',
+                      connectRight ? 'monthCalAwayLine--connectR' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    style={{
+                      background: colorForStaffName(
+                        sa.staffName,
+                        staffColourByLowerName,
+                        rosterRowsByDate,
+                      ),
+                    }}
+                  />
+                )
+              })}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <section className="monthCalWrap" aria-label="Calendar">
       <div className="monthCalHeader">
@@ -360,9 +535,7 @@ export default function MonthlyCalendar({
             onClick={() => runMonthTransition(-1)}
             aria-label="Previous month"
           >
-            <span className="monthCalNavGlyph" aria-hidden="true">
-              ‹
-            </span>
+            <span className="monthCalNavGlyph" aria-hidden="true">‹</span>
           </button>
           <button
             type="button"
@@ -370,18 +543,42 @@ export default function MonthlyCalendar({
             onClick={() => runMonthTransition(1)}
             aria-label="Next month"
           >
-            <span className="monthCalNavGlyph" aria-hidden="true">
-              ›
-            </span>
+            <span className="monthCalNavGlyph" aria-hidden="true">›</span>
           </button>
         </div>
       </div>
 
+      {/* Admin-only heatmap toggle + legend */}
+      {isAdmin ? (
+        <div className="monthCalHeatToggle">
+          <label className="monthCalHeatLabel">
+            <input
+              type="checkbox"
+              checked={heatmapEnabled}
+              onChange={(e) => setHeatmapEnabled(e.target.checked)}
+              className="monthCalHeatCheckbox"
+            />
+            <span>Heatmap colours</span>
+          </label>
+          {heatmapEnabled ? (
+            <div className="monthCalHeatLegend" aria-label="Heatmap legend">
+              <span className="monthCalHeatLegendItem">
+                <span className="monthCalHeatSwatch" style={{ background: '#16a34a' }} />Low
+              </span>
+              <span className="monthCalHeatLegendItem">
+                <span className="monthCalHeatSwatch" style={{ background: '#f59e0b' }} />Med
+              </span>
+              <span className="monthCalHeatLegendItem">
+                <span className="monthCalHeatSwatch" style={{ background: '#ef4444' }} />High
+              </span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="monthCalWeekdays" aria-hidden="true">
         {weekdays.map((w) => (
-          <div key={w} className="monthCalWeekday">
-            {w}
-          </div>
+          <div key={w} className="monthCalWeekday">{w}</div>
         ))}
       </div>
 
@@ -391,18 +588,14 @@ export default function MonthlyCalendar({
         aria-label="Month days"
         onPointerDown={(e) => {
           if (isAnimating) return
+          if (bottomSheetIso) return        // Block swipe while popup is open
           if (e.button !== 0) return
           const startX = e.clientX
           const startY = e.clientY
           const pid = e.pointerId
           dragRef.current = {
-            startX,
-            startY,
-            active: true,
-            blocked: false,
-            pointerId: pid,
+            startX, startY, active: true, blocked: false, pointerId: pid,
           }
-          /* Do not setPointerCapture — it prevents the first tap/click on child cells (tooltip). */
           const onMove = (ev: PointerEvent) => {
             if (ev.pointerId !== pid) return
             const dx = ev.clientX - startX
@@ -436,127 +629,8 @@ export default function MonthlyCalendar({
             isAnimating ? 'monthCalGridInner--animating' : '',
           ].join(' ')}
         >
-          <div
-            className="monthCalLayer monthCalLayer--current"
-          >
-            {currentCells.map((c) => {
-              const ws = weekendStrokeKind(c.iso, rosterRowsByDate?.[c.iso], c.inMonth)
-              return (
-              <div
-                key={`current-${c.iso}`}
-                className={[
-                  'monthCalCell',
-                  c.inMonth ? 'monthCalCell--in' : 'monthCalCell--out',
-                  c.iso === todayIso ? 'monthCalCell--today' : '',
-                  calendarMode === 'weekend_work' && ws === 'empty' ? 'monthCalCell--weekendEmpty' : '',
-                  calendarMode === 'weekend_work' && ws === 'staffed'
-                    ? 'monthCalCell--weekendStaffed'
-                    : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                role="gridcell"
-                tabIndex={0}
-                aria-label={c.iso}
-                data-monthcal-iso={c.iso}
-                onMouseEnter={() => {
-                  if (calendarMode !== 'staff_leave') return
-                  if ((currentAwayByIso.get(c.iso) ?? []).length === 0) return
-                  setActiveTipIso(c.iso)
-                }}
-                onMouseLeave={() => {
-                  setActiveTipIso((cur) => (cur === c.iso ? null : cur))
-                }}
-                onKeyDown={(e) => {
-                  if (calendarMode !== 'staff_leave') return
-                  const hasAway = (currentAwayByIso.get(c.iso) ?? []).length > 0
-                  if (!hasAway) return
-                  if (e.key !== 'Enter' && e.key !== ' ') return
-                  e.preventDefault()
-                  setActiveTipIso((cur) => (cur === c.iso ? null : c.iso))
-                }}
-                onPointerUp={(e) => {
-                  if (e.button !== 0) return
-                  const s = dragRef.current
-                  if (s.active && s.pointerId !== e.pointerId) return
-                  const dx = e.clientX - s.startX
-                  if (s.blocked) return
-                  if (Math.abs(dx) >= 60) return
-
-                  if (calendarMode === 'weekend_work') {
-                    if (!c.inMonth) return
-                    if (!isWeekendCellDate(c.date)) return
-                    e.stopPropagation()
-                    e.preventDefault()
-                    setWeekendModalIso(c.iso)
-                    return
-                  }
-
-                  if (calendarMode !== 'staff_leave') return
-                  const hasAway = (currentAwayByIso.get(c.iso) ?? []).length > 0
-                  if (!hasAway) return
-
-                  e.stopPropagation()
-                  const el = e.currentTarget as HTMLElement
-                  setActiveTipIso((prev) => {
-                    if (prev === c.iso) {
-                      setFixedTip(null)
-                      return null
-                    }
-                    setFixedTip(fixedTipFromRect(el.getBoundingClientRect()))
-                    return c.iso
-                  })
-                }}
-              >
-                <div className="monthCalCellInner">
-                  <span className="monthCalDayNum">{c.date.getDate()}</span>
-                  {calendarMode === 'staff_leave' ? (
-                    <div className="monthCalAwayLines" aria-hidden="true">
-                      {(currentAwayByIso.get(c.iso) ?? []).map((sa) => {
-                        const connectLeft = isAwayOnDate(sa, isoAddDays(c.iso, -1))
-                        const connectRight = isAwayOnDate(sa, isoAddDays(c.iso, 1))
-                        return (
-                          <span
-                            key={`${c.iso}-${sa.staffName}-${sa.startDate}-${sa.endDate}-${sa.reason}`}
-                            className={[
-                              'monthCalAwayLine',
-                              connectLeft ? 'monthCalAwayLine--connectL' : '',
-                              connectRight ? 'monthCalAwayLine--connectR' : '',
-                            ]
-                              .filter(Boolean)
-                              .join(' ')}
-                            style={{
-                              background: colorForStaffName(
-                                sa.staffName,
-                                staffColourByLowerName,
-                                rosterRowsByDate,
-                              ),
-                            }}
-                          />
-                        )
-                      })}
-                    </div>
-                  ) : calendarMode === 'weekend_work' && currentUser?.admin ? (
-                    <div className="monthCalAwayLines" aria-hidden="true">
-                      {uniqueAdminRosterRows(rosterRowsByDate?.[c.iso]).map((r) => (
-                        <span
-                          key={`${c.iso}-wknd-adm-${r.userId}`}
-                          className="monthCalAwayLine"
-                          style={{
-                            background: colorForStaffName(
-                              r.username,
-                              staffColourByLowerName,
-                              rosterRowsByDate,
-                            ),
-                          }}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-              )
-            })}
+          <div className="monthCalLayer monthCalLayer--current">
+            {currentCells.map((c) => renderCell(c, 'current'))}
           </div>
           {nextCells ? (
             <div className="monthCalLayer monthCalLayer--incoming" aria-hidden="true">
@@ -581,73 +655,57 @@ export default function MonthlyCalendar({
         </div>
       </div>
 
-      <div className="monthCalModeToggle" role="tablist" aria-label="Calendar mode">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={calendarMode === 'staff_leave'}
-          className={`monthCalModeBtn${calendarMode === 'staff_leave' ? ' monthCalModeBtn--active' : ''}`}
-          onClick={() => setCalendarMode('staff_leave')}
-        >
-          Staff leave
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={calendarMode === 'weekend_work'}
-          className={`monthCalModeBtn${calendarMode === 'weekend_work' ? ' monthCalModeBtn--active' : ''}`}
-          onClick={() => setCalendarMode('weekend_work')}
-        >
-          Weekend work
-        </button>
-      </div>
-      {calendarMode === 'weekend_work' ? (
-        <p className="monthCalWeekendHint">Tap a weekend to assign work.</p>
-      ) : null}
-      {fixedTip && hasActiveTip
+      {/* ── Unified bottom sheet day panel (replaces old expanded panel + weekend modal) ── */}
+      {bottomSheetIso
         ? createPortal(
             <div
-              className="monthCalTip"
-              role="tooltip"
-              style={{ top: fixedTip.top, left: fixedTip.left, width: fixedTip.width }}
-              onMouseEnter={() => {
-                // keep open when hovering tooltip
-                if (!activeTipIso) return
-                setActiveTipIso(activeTipIso)
-              }}
-              onMouseLeave={() => setActiveTipIso(null)}
+              className={`weekendRosterBackdrop${bottomSheetEntered ? ' weekendRosterBackdrop--visible' : ''}`}
+              role="presentation"
+              onPointerDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
               onClick={(e) => {
-                // allow tap anywhere on tooltip to close
-                e.stopPropagation()
-                setActiveTipIso(null)
+                if (e.target === e.currentTarget) setBottomSheetIso(null)
               }}
             >
-              {activeTipLines.map((l) => (
-                <div key={l.key} className="monthCalTipRow">
-                  <span className="monthCalTipDot" style={{ background: l.color }} />
-                  <span className="monthCalTipText">{l.text}</span>
-                </div>
-              ))}
+              <div
+                className={`weekendRosterPanel${bottomSheetEntered ? ' weekendRosterPanel--visible' : ''}`}
+                role="dialog"
+                aria-modal="true"
+                tabIndex={-1}
+              >
+                {sheetDay ? (
+                    <DayDetailPanel
+                      day={sheetDay}
+                      rosterRows={sheetDayRosterRows}
+                      canSchedule={sheetDayHasRealData ? canScheduleSheet : false}
+                      hasRealData={sheetDayHasRealData}
+                      staffsAway={staffsAway}
+                      currentUser={currentUser}
+                      onRosterBlockDeleted={onRosterChanged}
+                      onScheduleClick={() => {
+                        if (sheetDay) onScheduleRequest?.(sheetDay)
+                      }}
+                      rightAction={
+                        <button
+                          type="button"
+                          className="weekendRosterClose"
+                          onClick={() => setBottomSheetIso(null)}
+                          aria-label="Close day detail"
+                        >
+                          ×
+                        </button>
+                      }
+                      tone="modal"
+                      variant="expanded"
+                      rosterRowsByDate={rosterRowsByDate}
+                      staffColourByLowerName={staffColourByLowerName}
+                    />
+                ) : null}
+              </div>
             </div>,
             document.body,
           )
         : null}
-      {(() => {
-        if (currentUser && weekendModalIso) {
-          return (
-            <WeekendRosterModal
-              open={!!weekendModalIso}
-              dateIso={weekendModalIso}
-              currentUser={currentUser}
-              rosterRows={rosterRowsByDate?.[weekendModalIso] ?? []}
-              onClose={() => setWeekendModalIso(null)}
-              onChanged={() => onRosterChanged?.()}
-            />
-          )
-        }
-        return null
-      })()}
     </section>
   )
 }
-

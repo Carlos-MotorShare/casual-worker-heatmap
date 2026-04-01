@@ -30,13 +30,13 @@ export default function RosterDeleteFlow({
 
   useEffect(() => {
     if (!line) return
-    // For weekend-only shifts, skip to confirm phase
-    if (isWeekendOnly) {
+    // For weekend-only shifts or single-block rosters, skip directly to confirm
+    if (isWeekendOnly || line.blocks.length === 1) {
       setPhase('confirm')
       setSelectedBlockId(line.blocks[0]?.blockId ?? null)
     } else {
       setPhase('pick')
-      setSelectedBlockId(line.blocks.length === 1 ? line.blocks[0].blockId : null)
+      setSelectedBlockId(null)
     }
     setError(null)
     setBusy(false)
@@ -159,7 +159,7 @@ export default function RosterDeleteFlow({
                 className="rosterDeleteBtn rosterDeleteBtn--ghost"
                 disabled={busy}
                 onClick={() => {
-                  if (isWeekendOnly) {
+                  if (isWeekendOnly || (line && line.blocks.length <= 1)) {
                     onClose()
                   } else {
                     setPhase('pick')
@@ -167,7 +167,7 @@ export default function RosterDeleteFlow({
                   }
                 }}
               >
-                Back
+                {isWeekendOnly || (line && line.blocks.length <= 1) ? 'Cancel' : 'Back'}
               </button>
               <button
                 type="button"

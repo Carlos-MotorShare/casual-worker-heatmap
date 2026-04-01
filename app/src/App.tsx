@@ -2,17 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Ring } from 'ldrs/react'
 import 'ldrs/react/Ring.css'
 import './App.css'
-import HeatmapCalendar, {
+import {
   type StaffingDay,
-} from './components/HeatmapCalendar'
+} from './staffingDay'
 import PasswordGate from './components/PasswordGate'
 import ScheduleModal from './components/ScheduleModal'
-import darkBG from './assets/darkBG.png'
-import { getGreetingByTimeNZ, isWeekendIso } from './lib/rosterHelpers'
+import { getGreetingByTimeNZ } from './lib/rosterHelpers'
 import { useRosterStore } from './stores/useRosterStore'
 import { useUserStore } from './stores/useUserStore'
 import BottomNav, { type BottomNavKey } from './components/BottomNav'
-import personIcon from './assets/person.png'
 import todayIcon from './assets/logo_white.png'
 import calendarIcon from './assets/calendar.png'
 import DayDetailPanel from './components/DayDetailPanel'
@@ -38,19 +36,6 @@ function monthGridIsoRange(anchor: Date): { start: string; end: string } {
     return `${y}-${m}-${day}`
   }
   return { start: iso(gridStart), end: iso(gridEnd) }
-}
-
-function formatGeneratedAt(value: string | null) {
-  if (!value) return '—'
-  const d = new Date(value)
-  if (!Number.isFinite(d.getTime())) return value
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(d)
 }
 
 function App() {
@@ -144,7 +129,6 @@ function App() {
   }, [])
 
   const [days, setDays] = useState<StaffingDay[] | null>(null)
-  const [generatedAt, setGeneratedAt] = useState<string | null>(null)
   const [liveStatus, setLiveStatus] = useState<
     'connecting' | 'connected' | 'error'
   >('connecting')
@@ -212,9 +196,8 @@ function App() {
           const maybeDays = (json as { days?: unknown }).days
           const maybeStaffsAway = (json as { staffsAway?: unknown }).staffsAway
 
-          if (typeof maybeGeneratedAt === 'string') {
-            setGeneratedAt(maybeGeneratedAt)
-          }
+          // generatedAt received but no longer displayed
+          void maybeGeneratedAt
           if (Array.isArray(maybeDays) && maybeDays.length > 0) {
             // Trust server contract; clamp to 14 in component anyway.
             setDays(maybeDays as StaffingDay[])
@@ -372,7 +355,7 @@ function App() {
 
   const navItems = useMemo(
     () => [
-      { key: 'roster' as const, label: 'Roster', iconSrc: personIcon },
+      { key: 'events' as const, label: 'Events', iconSrc: calendarIcon },
       { key: 'today' as const, label: 'Today', iconSrc: todayIcon },
       { key: 'calendar' as const, label: 'Calendar', iconSrc: calendarIcon },
     ],
@@ -416,82 +399,19 @@ function App() {
               <div
                 className={[
                   'page',
-                  activeTab === 'roster' ? 'page--active' : '',
-                  leavingTab === 'roster' ? 'page--leaving' : '',
+                  activeTab === 'events' ? 'page--active' : '',
+                  leavingTab === 'events' ? 'page--leaving' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                aria-hidden={activeTab !== 'roster'}
+                aria-hidden={activeTab !== 'events'}
               >
                 <section className="center">
-                  <div
-                    className="rosterHeroImageWrap"
-                    style={{
-                      width: 'min(980px, 100%)',
-                      boxShadow: 'var(--shadow)',
-                      overflow: 'hidden',
-                    }}
-                    aria-label="Roster image"
-                  >
-                    <img
-                      src={darkBG}
-                      alt=""
-                      style={{
-                        width: 'clamp(160px, 22vw, 280px)',
-                        maxWidth: '32%',
-                        height: 'auto',
-                        display: 'block',
-                        opacity: 1,
-                        margin: '0 auto',
-                      }}
-                      onError={(e) => {
-                        ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ width: 'min(980px, 100%)' }}>
-                    <h1>Casual Worker Roster</h1>
-                    <p style={{ marginBottom: 20 }}>
-                      14‑day staffing pressure based on <s>pickups, dropoffs, </s>cars to wash,
-                      and staff away.
+                  <div style={{ width: 'min(980px, 100%)', textAlign: 'left' }}>
+                    <h1 style={{ marginBottom: 12 }}>Events</h1>
+                    <p style={{ marginBottom: 18, opacity: 0.6 }}>
+                      Coming soon.
                     </p>
-                  </div>
-                  <HeatmapCalendar
-                    days={effectiveDays}
-                    rosterByDate={rowsByDate}
-                    staffsAway={staffsAway}
-                    dirtyCars={dirtyCars}
-                    canSchedule={canSchedule}
-                    currentUser={user}
-                    onRosterBlockDeleted={reloadAllRosters}
-                    onScheduleRequest={(d) => setScheduleDay(d)}
-                  />
-
-                  <div
-                    style={{
-                      width: 'min(980px, 100%)',
-                      margin: '10px auto 0',
-                      textAlign: 'left',
-                      fontSize: 12,
-                      opacity: 0.85,
-                      display: 'grid',
-                      gap: 6,
-                    }}
-                  >
-                    <div>
-                      Data last received: <code>{formatGeneratedAt(generatedAt)}</code>
-                    </div>
-                    <div>
-                      Status:{' '}
-                      <code>
-                        {liveStatus === 'connecting'
-                          ? 'connecting'
-                          : liveStatus === 'connected'
-                            ? 'connected'
-                            : 'disconnected'}
-                      </code>
-                    </div>
                   </div>
                 </section>
               </div>
@@ -529,15 +449,13 @@ function App() {
                     <DayDetailPanel
                       day={todayDay}
                       rosterRows={rowsByDate?.[todayDay.date] ?? []}
-                      canSchedule={
-                        canSchedule &&
-                        !isWeekendIso(todayDay.date)
-                      }
+                      canSchedule={canSchedule}
                       staffsAway={staffsAway}
                       dirtyCars={dirtyCars}
                       currentUser={user}
                       onRosterBlockDeleted={reloadAllRosters}
                       onScheduleClick={() => setScheduleDay(todayDay)}
+                      variant="today"
                     />
                   ) : (
                     <div style={{ width: 'min(980px, 100%)', textAlign: 'left' }}>
@@ -566,11 +484,14 @@ function App() {
                   </div>
                   <MonthlyCalendar
                     onMonthChange={setCalendarMonth}
+                    days={effectiveDays}
                     staffsAway={staffsAway}
+                    dirtyCars={dirtyCars}
                     staffColourByLowerName={staffColourByLowerName}
                     rosterRowsByDate={rowsByDate}
                     currentUser={user}
                     onRosterChanged={reloadAllRosters}
+                    onScheduleRequest={(d) => setScheduleDay(d)}
                   />
                 </section>
               </div>
