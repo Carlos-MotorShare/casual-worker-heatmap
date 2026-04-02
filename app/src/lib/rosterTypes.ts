@@ -5,6 +5,8 @@ export type User = {
   colour?: string | null
   /** When true, may remove any roster block */
   admin?: boolean
+  /** When true, may assign/remove weekend shifts for others (Calendar) */
+  canRoster?: boolean
 }
 
 export type RosterRow = {
@@ -15,6 +17,8 @@ export type RosterRow = {
   username: string
   /** CSS hex from users.colour */
   colour: string | null
+  /** True when the roster row belongs to a user with admin=true (hidden on heatmap) */
+  rosterUserIsAdmin?: boolean
   startTime: string
   endTime: string
 }

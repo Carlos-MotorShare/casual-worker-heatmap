@@ -1,0 +1,253 @@
+.weekendRosterBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999990;
+  background: color-mix(in srgb, var(--bg-900), transparent 45%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+
+.weekendRosterBackdrop--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (min-width: 520px) {
+  .weekendRosterBackdrop {
+    align-items: center;
+  }
+}
+
+.weekendRosterPanel {
+  width: min(440px, 100%);
+  max-height: min(88vh, 720px);
+  overflow: auto;
+  border-radius: 16px 16px 0 0;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 25%);
+  background: color-mix(in srgb, var(--bg-800), var(--bg-900) 22%);
+  box-shadow: var(--shadow);
+  padding: 18px 18px 22px;
+  transform: translateY(12px);
+  opacity: 0;
+  transition:
+    transform 200ms ease,
+    opacity 200ms ease;
+}
+
+@media (min-width: 520px) {
+  .weekendRosterPanel {
+    border-radius: 16px;
+  }
+}
+
+.weekendRosterPanel--visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.weekendRosterHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.weekendRosterTitle {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+  color: var(--text-h);
+}
+
+.weekendRosterClose {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--text-h);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.75;
+  padding: 0 4px;
+}
+
+.weekendRosterClose:hover {
+  opacity: 1;
+}
+
+.weekendRosterSubtitle {
+  margin: 6px 0 16px;
+  font-size: 0.95rem;
+  opacity: 0.88;
+}
+
+.weekendRosterSection {
+  margin-bottom: 16px;
+}
+
+.weekendRosterSectionTitle {
+  margin: 0 0 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  opacity: 0.75;
+}
+
+.weekendRosterEmpty {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.weekendRosterList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.weekendRosterRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.weekendRosterRowMain {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.weekendRosterRowText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.weekendRosterDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--bg-900), transparent 50%);
+}
+
+.weekendRosterName {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.weekendRosterTimes {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.weekendRosterRemove {
+  border: 1px solid color-mix(in srgb, var(--border), transparent 35%);
+  background: color-mix(in srgb, var(--white), transparent 94%);
+  color: var(--text-h);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.weekendRosterActions {
+  margin-bottom: 14px;
+}
+
+.weekendRosterSelfBtn {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: 650;
+  cursor: pointer;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--primary-500), white 12%),
+    var(--primary-500)
+  );
+  color: white;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary-500), transparent 65%);
+}
+
+.weekendRosterSelfBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.weekendRosterAssign {
+  border-top: 1px solid color-mix(in srgb, var(--border), transparent 40%);
+  padding-top: 14px;
+}
+
+.weekendRosterAssignList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.weekendRosterAssignBtn {
+  width: 100%;
+  text-align: left;
+  border: 1px solid color-mix(in srgb, #f97316, transparent 55%);
+  background: color-mix(in srgb, #f97316, transparent 88%);
+  color: var(--text-h);
+  font-size: 14px;
+  font-weight: 650;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 140ms ease;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.weekendRosterAssignBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, #f97316, transparent 78%);
+}
+
+.weekendRosterAssignBtn:active:not(:disabled) {
+  background: color-mix(in srgb, #f97316, transparent 75%);
+}
+
+.weekendRosterAssignBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.weekendRosterError {
+  color: var(--bg-danger, #f87171);
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
+.weekendRosterHint {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.82;
+}
+
+.weekendRosterNote {
+  margin: 8px 0 0;
+  font-size: 13px;
+  opacity: 0.78;
+  line-height: 1.4;
+}

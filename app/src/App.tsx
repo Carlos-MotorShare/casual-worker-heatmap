@@ -1,38 +1,70 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Ring } from 'ldrs/react'
 import 'ldrs/react/Ring.css'
 import './App.css'
-import HeatmapCalendar, {
+import {
   type StaffingDay,
-} from './components/HeatmapCalendar'
+} from './staffingDay'
 import PasswordGate from './components/PasswordGate'
 import ScheduleModal from './components/ScheduleModal'
-import darkBG from './assets/darkBG.png'
 import { getGreetingByTimeNZ } from './lib/rosterHelpers'
 import { useRosterStore } from './stores/useRosterStore'
 import { useUserStore } from './stores/useUserStore'
+import BottomNav, { type BottomNavKey } from './components/BottomNav'
+import todayIcon from './assets/logo_white.png'
+import calendarIcon from './assets/calendar.png'
+import eventsIcon from './assets/events_white.png'
+import moonIcon from './assets/moon.png'
+import sunIcon from './assets/sun_white.png'
+import DayDetailPanel from './components/DayDetailPanel'
+import MonthlyCalendar from './components/MonthlyCalendar'
+import { useTheme } from './lib/useTheme'
 
 const API_BASE_URL =
   import.meta.env.REACT_APP_API_URL?.toString().trim() || 'http://localhost:3001'
 
-function formatGeneratedAt(value: string | null) {
-  if (!value) return '—'
-  const d = new Date(value)
-  if (!Number.isFinite(d.getTime())) return value
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(d)
+/** First/last ISO dates in the 6×7 month grid (weeks start Monday). */
+function monthGridIsoRange(anchor: Date): { start: string; end: string } {
+  const monthStart = new Date(anchor.getFullYear(), anchor.getMonth(), 1)
+  const startDow = monthStart.getDay()
+  const weekStart = 1
+  const offset = (startDow - weekStart + 7) % 7
+  const gridStart = new Date(monthStart)
+  gridStart.setDate(monthStart.getDate() - offset)
+  const gridEnd = new Date(gridStart)
+  gridEnd.setDate(gridStart.getDate() + 41)
+  const iso = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+  return { start: iso(gridStart), end: iso(gridEnd) }
 }
 
 function App() {
   const user = useUserStore((s) => s.user)
   const rowsByDate = useRosterStore((s) => s.rowsByDate)
   const loadRosterRange = useRosterStore((s) => s.loadRange)
+  const loadAdminUsers = useRosterStore((s) => s.loadAdminUsers)
+  const { theme, toggle: toggleTheme } = useTheme()
   const [scheduleDay, setScheduleDay] = useState<StaffingDay | null>(null)
+  const [activeTab, setActiveTab] = useState<BottomNavKey>('today')
+  const prevTabRef = useRef<BottomNavKey>('today')
+  const [leavingTab, setLeavingTab] = useState<BottomNavKey | null>(null)
+  const [staffsAway, setStaffsAway] = useState<
+    Array<{ staffName: string; startDate: string; endDate: string; reason: string }>
+  >([])
+  const [dirtyCars, setDirtyCars] = useState<
+    Array<{ vehicleName: string; nextPickupDateTime: string | null }>
+  >([])
+  const [staffColourByLowerName, setStaffColourByLowerName] = useState<
+    Record<string, string>
+  >({})
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const n = new Date()
+    return new Date(n.getFullYear(), n.getMonth(), 1)
+  })
 
   const mockDays = useMemo((): StaffingDay[] => {
     const today = new Date()
@@ -102,7 +134,6 @@ function App() {
   }, [])
 
   const [days, setDays] = useState<StaffingDay[] | null>(null)
-  const [generatedAt, setGeneratedAt] = useState<string | null>(null)
   const [liveStatus, setLiveStatus] = useState<
     'connecting' | 'connected' | 'error'
   >('connecting')
@@ -113,6 +144,49 @@ function App() {
     const id = window.setTimeout(() => setMinMainLoadDone(true), 1000)
     return () => window.clearTimeout(id)
   }, [])
+
+  // Force enable interaction after 5 seconds even if not connected
+  const [forceEnableAfterTimeout, setForceEnableAfterTimeout] = useState(false)
+  useEffect(() => {
+    const id = window.setTimeout(() => setForceEnableAfterTimeout(true), 5000)
+    return () => window.clearTimeout(id)
+  }, [])
+
+  useEffect(() => {
+    if (!user) {
+      setStaffColourByLowerName({})
+      return
+    }
+    // Load admin users for weekend roster modal caching
+    void loadAdminUsers(user.id)
+    
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/staff-colours`)
+        if (!res.ok) return
+        const json = (await res.json()) as {
+          rows?: Array<{ username: string; colour: string | null }>
+        }
+        const rows = Array.isArray(json.rows) ? json.rows : []
+        const map: Record<string, string> = {}
+        for (const r of rows) {
+          const u = typeof r.username === 'string' ? r.username.trim() : ''
+          const c = typeof r.colour === 'string' ? r.colour.trim() : ''
+          if (u && c) map[u.toLowerCase()] = c
+        }
+        if (user.username?.trim() && user.colour) {
+          map[user.username.trim().toLowerCase()] = user.colour
+        }
+        if (!cancelled) setStaffColourByLowerName(map)
+      } catch {
+        // ignore
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [user, loadAdminUsers])
 
   useEffect(() => {
     const es = new EventSource(`${API_BASE_URL}/api/stream`)
@@ -125,14 +199,83 @@ function App() {
         if (json && typeof json === 'object') {
           const maybeGeneratedAt = (json as { generatedAt?: unknown }).generatedAt
           const maybeDays = (json as { days?: unknown }).days
+          const maybeStaffsAway = (json as { staffsAway?: unknown }).staffsAway
 
-          if (typeof maybeGeneratedAt === 'string') {
-            setGeneratedAt(maybeGeneratedAt)
-          }
+          // generatedAt received but no longer displayed
+          void maybeGeneratedAt
           if (Array.isArray(maybeDays) && maybeDays.length > 0) {
             // Trust server contract; clamp to 14 in component anyway.
             setDays(maybeDays as StaffingDay[])
           }
+          const topLevelFiltered = Array.isArray(maybeStaffsAway)
+            ? maybeStaffsAway.filter(
+                (
+                  x,
+                ): x is { staffName: string; startDate: string; endDate: string; reason: string } =>
+                  Boolean(x) &&
+                  typeof x === 'object' &&
+                  typeof (x as { staffName?: unknown }).staffName === 'string' &&
+                  typeof (x as { startDate?: unknown }).startDate === 'string' &&
+                  typeof (x as { endDate?: unknown }).endDate === 'string' &&
+                  typeof (x as { reason?: unknown }).reason === 'string',
+              )
+            : null
+
+          // If away data is nested inside each day, flatten it for the monthly calendar overlay.
+          const nestedFlattened: Array<{
+            staffName: string
+            startDate: string
+            endDate: string
+            reason: string
+          }> = []
+          
+          // Extract dirty cars from first day (if present)
+          let dirtyCarsFromFirstDay: Array<{ vehicleName: string; nextPickupDateTime: string | null }> = []
+          
+          if (Array.isArray(maybeDays)) {
+            for (const d of maybeDays) {
+              if (!d || typeof d !== 'object') continue
+              const o = d as Record<string, unknown>
+              const arr = (o.staffsAway ?? o.staffs_away ?? o.staffsData ?? o.staffs_data) as unknown
+              if (!Array.isArray(arr)) continue
+              for (const x of arr) {
+                if (!x || typeof x !== 'object') continue
+                const xa = x as Record<string, unknown>
+                const staffName = typeof xa.staffName === 'string' ? xa.staffName : ''
+                const startDate = typeof xa.startDate === 'string' ? xa.startDate : ''
+                const endDate = typeof xa.endDate === 'string' ? xa.endDate : ''
+                const reason = typeof xa.reason === 'string' ? xa.reason : ''
+                if (!staffName || !startDate || !endDate) continue
+                nestedFlattened.push({ staffName, startDate, endDate, reason })
+              }
+            }
+            
+            // Extract dirty cars from the first day
+            const firstDay = maybeDays[0]
+            if (firstDay && typeof firstDay === 'object') {
+              const firstDayObj = firstDay as Record<string, unknown>
+              const dirtyCarsRaw = (firstDayObj.dirtyCars ?? firstDayObj.dirty_cars) as unknown
+              if (Array.isArray(dirtyCarsRaw)) {
+                dirtyCarsFromFirstDay = dirtyCarsRaw.filter(
+                  (x): x is { vehicleName: string; nextPickupDateTime: string | null } =>
+                    Boolean(x) &&
+                    typeof x === 'object' &&
+                    (typeof (x as { vehicleName?: unknown }).vehicleName === 'string' ||
+                      typeof (x as { vehicle_name?: unknown }).vehicle_name === 'string'),
+                ).map((x) => {
+                  const xo = x as Record<string, unknown>
+                  return {
+                    vehicleName: typeof xo.vehicleName === 'string' ? xo.vehicleName : String(xo.vehicle_name ?? ''),
+                    nextPickupDateTime: typeof xo.nextPickupDateTime === 'string' ? xo.nextPickupDateTime : (typeof xo.next_pickup_date_time === 'string' ? xo.next_pickup_date_time : null),
+                  }
+                })
+              }
+            }
+          }
+
+          const chosen = topLevelFiltered && topLevelFiltered.length > 0 ? topLevelFiltered : nestedFlattened
+          setStaffsAway(chosen)
+          setDirtyCars(dirtyCarsFromFirstDay)
         }
       } catch {
         // ignore malformed events
@@ -154,7 +297,7 @@ function App() {
   }, [])
 
   /** Blur + spinner until connected and at least 1s on screen (no sub-second flash). */
-  const showMainLoader = !(liveStatus === 'connected' && minMainLoadDone)
+  const showMainLoader = !(liveStatus === 'connected' && minMainLoadDone) && !forceEnableAfterTimeout
 
   const effectiveDays = days && days.length ? days : mockDays
 
@@ -167,8 +310,25 @@ function App() {
   useEffect(() => {
     if (!user) return
     if (!rosterWindow.start || !rosterWindow.end) return
-    void loadRosterRange(rosterWindow.start, rosterWindow.end)
-  }, [user, rosterWindow.start, rosterWindow.end, loadRosterRange])
+    const grid = monthGridIsoRange(calendarMonth)
+    const start =
+      rosterWindow.start < grid.start ? rosterWindow.start : grid.start
+    const end = rosterWindow.end > grid.end ? rosterWindow.end : grid.end
+    void loadRosterRange(start, end)
+  }, [user, rosterWindow.start, rosterWindow.end, calendarMonth, loadRosterRange])
+
+  const reloadAllRosters = () => {
+    if (!user) return
+    const grid = monthGridIsoRange(calendarMonth)
+    if (!rosterWindow.start || !rosterWindow.end) {
+      void loadRosterRange(grid.start, grid.end)
+      return
+    }
+    const start =
+      rosterWindow.start < grid.start ? rosterWindow.start : grid.start
+    const end = rosterWindow.end > grid.end ? rosterWindow.end : grid.end
+    void loadRosterRange(start, end)
+  }
 
   /** Casual workers schedule themselves; admins do not use this control. */
   const canSchedule = Boolean(
@@ -176,6 +336,58 @@ function App() {
   )
   const greeting =
     user && user.username ? getGreetingByTimeNZ(user.username) : null
+
+  const todayIsoNZ = useMemo(() => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Pacific/Auckland',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date())
+    const y = parts.find((p) => p.type === 'year')?.value ?? '0000'
+    const m = parts.find((p) => p.type === 'month')?.value ?? '01'
+    const d = parts.find((p) => p.type === 'day')?.value ?? '01'
+    return `${y}-${m}-${d}`
+  }, [])
+
+  const todayDay = useMemo(() => {
+    const hit = effectiveDays.find((d) => d.date === todayIsoNZ)
+    if (hit) return hit
+    // Fallback: nearest future day in stream (or first item).
+    const sorted = [...effectiveDays].sort((a, b) => a.date.localeCompare(b.date))
+    return sorted.find((d) => d.date >= todayIsoNZ) ?? sorted[0] ?? null
+  }, [effectiveDays, todayIsoNZ])
+
+  const navItems = useMemo(
+    () => [
+      { key: 'events' as const, label: 'Events', iconSrc: eventsIcon },
+      { key: 'today' as const, label: 'Today', iconSrc: todayIcon },
+      { key: 'calendar' as const, label: 'Calendar', iconSrc: calendarIcon },
+    ],
+    [],
+  )
+
+  const switchTab = (next: BottomNavKey) => {
+    if (next === activeTab) return
+    prevTabRef.current = activeTab
+    setLeavingTab(activeTab)
+    setActiveTab(next)
+    window.setTimeout(() => {
+      setLeavingTab((cur) => (cur === prevTabRef.current ? null : cur))
+    }, 260)
+  }
+
+  useEffect(() => {
+    // Scroll the active page to the top whenever the tab changes
+    // Use requestAnimationFrame to ensure the DOM has updated and the scroll happens after layout
+    const id = requestAnimationFrame(() => {
+      const activePage = document.querySelector('.page--active')
+      if (activePage) {
+        activePage.scrollTop = 0
+      }
+    })
+    return () => cancelAnimationFrame(id)
+  }, [activeTab])
 
   return (
     <PasswordGate>
@@ -187,107 +399,137 @@ function App() {
             pointerEvents: showMainLoader ? 'none' : 'auto',
           }}
         >
-          <section id="center">
-            <div
-              className="rosterHeroImageWrap"
-              style={{
-                width: 'min(980px, 100%)',
-                boxShadow: 'var(--shadow)',
-                overflow: 'hidden',
-              }}
-              aria-label="Roster image"
-            >
-              <img
-                src={darkBG}
-                alt=""
-                style={{
-                  width: 'clamp(160px, 22vw, 280px)',
-                  maxWidth: '32%',
-                  height: 'auto',
-                  display: 'block',
-                  opacity: 1,
-                  margin: '0 auto',
-                }}
-                onError={(e) => {
-                  ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-                }}
-              />
-            </div>
-
-            <div style={{ width: 'min(980px, 100%)' }}>
-              <h1>Casual Worker Roster</h1>
-
-              <p style={{ marginBottom: greeting ? 20 : 20 }}>
-                14‑day staffing pressure based on pickups, dropoffs, cars to wash,
-                and staff away.
-              </p>
-
-              {greeting ? (
-                <p
-                  style={{
-                    marginTop: 10,
-                    marginBottom: 10,
-                    fontSize: '1.20rem',
-                    fontWeight: 600,
-                    color: 'var(--text-h)',
-                  }}
-                >
-                  {greeting}
-                </p>
-              ) : null}
-            </div>
-
-            <HeatmapCalendar
-              days={effectiveDays}
-              rosterByDate={rowsByDate}
-              canSchedule={canSchedule}
-              currentUser={user}
-              onRosterBlockDeleted={() => {
-                if (rosterWindow.start && rosterWindow.end) {
-                  void loadRosterRange(rosterWindow.start, rosterWindow.end)
-                }
-              }}
-              onScheduleRequest={(d) => setScheduleDay(d)}
-            />
-
-            <ScheduleModal
-              open={!!scheduleDay && !!user}
-              dateIso={scheduleDay?.date ?? ''}
-              userId={user?.id ?? ''}
-              onClose={() => setScheduleDay(null)}
-              onSaved={() => {
-                if (rosterWindow.start && rosterWindow.end) {
-                  void loadRosterRange(rosterWindow.start, rosterWindow.end)
-                }
-              }}
-            />
-            <div
-              style={{
-                width: 'min(980px, 100%)',
-                margin: '10px auto 0',
-                textAlign: 'left',
-                fontSize: 12,
-                opacity: 0.85,
-                display: 'grid',
-                gap: 6,
-              }}
-            >
-              <div>
-                Data last received:{' '}
-                <code>{formatGeneratedAt(generatedAt)}</code>
+          <div className="appShell">
+            <div className="pageViewport" aria-label="Pages">
+              <div
+                className={[
+                  'page',
+                  activeTab === 'events' ? 'page--active' : '',
+                  leavingTab === 'events' ? 'page--leaving' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-hidden={activeTab !== 'events'}
+              >
+                <section className="center">
+                  <div style={{ width: 'min(980px, 100%)', textAlign: 'left' }}>
+                    <h1 style={{ marginBottom: 12 }}>Events</h1>
+                    <p style={{ marginBottom: 18, opacity: 0.6 }}>
+                      Coming soon.
+                    </p>
+                  </div>
+                </section>
               </div>
-              <div>
-                Status:{' '}
-                <code>
-                  {liveStatus === 'connecting'
-                    ? 'connecting'
-                    : liveStatus === 'connected'
-                      ? 'connected'
-                      : 'disconnected'}
-                </code>
+
+              <div
+                className={[
+                  'page',
+                  activeTab === 'today' ? 'page--active' : '',
+                  leavingTab === 'today' ? 'page--leaving' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-hidden={activeTab !== 'today'}
+              >
+                <section className="center">
+                  <div style={{ width: 'min(980px, 100%)', textAlign: 'left' }}>
+                    {greeting ? (
+                      <p
+                        style={{
+                          marginBottom: 8,
+                          fontSize: '1.1rem',
+                          fontWeight: 600,
+                          color: 'var(--text-h)',
+                        }}
+                      >
+                        {greeting}
+                      </p>
+                    ) : null}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                      <h1 style={{ marginBottom: 12 }}>Today</h1>
+                      <button
+                        type="button"
+                        className="themeToggleBtn"
+                        onClick={toggleTheme}
+                        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                        title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                      >
+                        <img
+                          src={theme === 'dark' ? sunIcon : moonIcon}
+                          alt=""
+                          aria-hidden="true"
+                          className="themeToggleIcon"
+                        />
+                      </button>
+                    </div>
+                    <p style={{ marginBottom: 18, opacity: 0.9 }}>
+                      Current-day schedule, roster, and workload.
+                    </p>
+                  </div>
+                  {todayDay ? (
+                    <DayDetailPanel
+                      day={todayDay}
+                      rosterRows={rowsByDate?.[todayDay.date] ?? []}
+                      canSchedule={canSchedule}
+                      staffsAway={staffsAway}
+                      dirtyCars={dirtyCars}
+                      currentUser={user}
+                      onRosterBlockDeleted={reloadAllRosters}
+                      onScheduleClick={() => setScheduleDay(todayDay)}
+                      variant="today"
+                      staffColourByLowerName={staffColourByLowerName}
+                      rosterRowsByDate={rowsByDate}
+                    />
+                  ) : (
+                    <div style={{ width: 'min(980px, 100%)', textAlign: 'left' }}>
+                      <p>No day data available.</p>
+                    </div>
+                  )}
+                </section>
+              </div>
+
+              <div
+                className={[
+                  'page',
+                  activeTab === 'calendar' ? 'page--active' : '',
+                  leavingTab === 'calendar' ? 'page--leaving' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-hidden={activeTab !== 'calendar'}
+              >
+                <section className="center">
+                  <div style={{ width: 'min(980px, 100%)', textAlign: 'left' }}>
+                    <h1 style={{ marginBottom: 12 }}>Calendar</h1>
+                    <p style={{ marginBottom: 18, opacity: 0.9 }}>
+                      Swipe to navigate between months.
+                    </p>
+                  </div>
+                  <MonthlyCalendar
+                    onMonthChange={setCalendarMonth}
+                    days={effectiveDays}
+                    staffsAway={staffsAway}
+                    dirtyCars={dirtyCars}
+                    staffColourByLowerName={staffColourByLowerName}
+                    rosterRowsByDate={rowsByDate}
+                    currentUser={user}
+                    onRosterChanged={reloadAllRosters}
+                    onScheduleRequest={(d) => setScheduleDay(d)}
+                  />
+                </section>
               </div>
             </div>
-          </section>
+
+            <BottomNav active={activeTab} onChange={switchTab} items={navItems} />
+          </div>
+
+          <ScheduleModal
+            open={!!scheduleDay && !!user}
+            dateIso={scheduleDay?.date ?? ''}
+            userId={user?.id ?? ''}
+            onClose={() => setScheduleDay(null)}
+            onSaved={reloadAllRosters}
+          />
         </div>
         {showMainLoader ? (
           <div
@@ -309,7 +551,7 @@ function App() {
               stroke="6"
               bgOpacity="0"
               speed="1.6"
-              color="white"
+              color={theme === 'dark' ? 'white' : '#1a1a2e'}
             />
           </div>
         ) : null}

@@ -5,6 +5,12 @@ import type { RosterRow } from '../lib/rosterTypes'
 const API_BASE =
   import.meta.env.REACT_APP_API_URL?.toString().trim() || 'http://localhost:3001'
 
+export type AdminUser = {
+  id: string
+  username: string
+  colour: string
+}
+
 function rowsByDate(rows: RosterRow[]): Record<string, RosterRow[]> {
   const out: Record<string, RosterRow[]> = {}
   for (const r of rows) {
@@ -16,14 +22,19 @@ function rowsByDate(rows: RosterRow[]): Record<string, RosterRow[]> {
 
 type RosterState = {
   rowsByDate: Record<string, RosterRow[]>
+  adminUsers: AdminUser[]
+  adminUsersLoaded: boolean
   loaded: boolean
   error: string | null
   loadRange: (startIso: string, endIso: string) => Promise<void>
+  loadAdminUsers: (excludeUserId?: string) => Promise<void>
   setRowsForDates: (rows: RosterRow[]) => void
 }
 
 export const useRosterStore = create<RosterState>((set) => ({
   rowsByDate: {},
+  adminUsers: [],
+  adminUsersLoaded: false,
   loaded: false,
   error: null,
 
@@ -36,6 +47,24 @@ export const useRosterStore = create<RosterState>((set) => ({
       }
       return { rowsByDate: next, loaded: true, error: null }
     })
+  },
+
+  loadAdminUsers: async (excludeUserId?: string) => {
+    try {
+      const query = excludeUserId ? `?exclude=${encodeURIComponent(excludeUserId)}` : ''
+      const res = await fetch(`${API_BASE}/api/admin-users${query}`)
+      if (!res.ok) {
+        const msg = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(msg.error || `Failed to load admin users (${res.status})`)
+      }
+      const json = (await res.json()) as { rows?: AdminUser[] }
+      const users = Array.isArray(json.rows) ? json.rows : []
+      set({ adminUsers: users, adminUsersLoaded: true })
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to load admin users'
+      console.error('[admin users]', e)
+      set({ adminUsers: [], adminUsersLoaded: true, error: message })
+    }
   },
 
   loadRange: async (startIso, endIso) => {

@@ -1,4 +1,4 @@
-import type { RosterRow, RosterTimelineRun, TimeRangeMinutes } from './rosterTypes'
+import type { RosterRow, RosterTimelineRun, TimeRangeMinutes, User } from './rosterTypes'
 import {
   TIMELINE_END_MINUTES,
   TIMELINE_SEGMENT_COUNT,
@@ -12,6 +12,23 @@ export const BLOCK_MINUTES = 30
 export const BLOCK_COUNT = (DAY_END_MINUTES - DAY_START_MINUTES) / BLOCK_MINUTES
 
 const NZ_TIMEZONE = 'Pacific/Auckland'
+
+/** Civil date YYYY-MM-DD is Saturday or Sunday (UTC; aligns with server `isWeekendIso`). */
+export function isWeekendIso(iso: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim())
+  if (!m) return false
+  const y = Number(m[1])
+  const mo = Number(m[2])
+  const d = Number(m[3])
+  const day = new Date(Date.UTC(y, mo - 1, d)).getUTCDay()
+  return day === 0 || day === 6
+}
+
+/** Heatmap shows only non–admin workers (admins share tables for weekend self-roster). */
+export function rosterRowsForHeatmap(rows: RosterRow[] | undefined): RosterRow[] {
+  if (!rows?.length) return []
+  return rows.filter((r) => r.rosterUserIsAdmin !== true)
+}
 
 export type TimeBlockDescriptor = {
   index: number
@@ -381,4 +398,17 @@ export function rosterSummaryDetailForDay(rows: RosterRow[]): RosterSummaryLineD
     })
   }
   return out.sort((a, b) => a.username.localeCompare(b.username))
+}
+
+export function canActorRemoveRosterLine(
+  line: RosterSummaryLineDetail,
+  user: User | null,
+): boolean {
+  if (!user) return false
+  // Can always remove own line
+  if (line.userId === user.id) return true
+  // Only canRoster users can remove others (on weekends)
+  if (user.canRoster === true) return true
+  // Admins and non-canRoster users cannot remove others
+  return false
 }

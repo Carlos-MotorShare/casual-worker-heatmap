@@ -224,7 +224,7 @@ export default function DayTimeline({
 
   return (
     <div className="dayTimeline">
-      <p className="dayTimelineCaption">8:00 AM – 8:00 PM · 1‑hour blocks</p>
+      <p className="dayTimelineCaption">8:00 AM – 8:00 PM<br />1‑hour blocks</p>
       <div className="dayTimelineAxis" aria-hidden="true">
         {buckets.map((_, i) => (
           <div key={i} className="dayTimelineAxisRow">

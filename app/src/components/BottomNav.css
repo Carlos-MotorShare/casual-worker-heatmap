@@ -1,0 +1,79 @@
+.bottomNav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid color-mix(in srgb, var(--border), transparent 25%);
+  background: color-mix(in srgb, var(--bg-900), transparent 6%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.bottomNavItem {
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  background: transparent;
+  border: 0;
+  padding: 8px 10px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    transform 160ms ease,
+    opacity 160ms ease;
+  opacity: 0.55;
+  color: var(--text-h);
+}
+
+.bottomNavItem:hover {
+  background: color-mix(in srgb, var(--white), transparent 94%);
+}
+
+.bottomNavItem:active {
+  transform: translateY(1px);
+}
+
+.bottomNavItem:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.bottomNavItem--active {
+  opacity: 1;
+}
+
+.bottomNavIcon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  filter: brightness(1.1);
+}
+
+.bottomNavItem:not(.bottomNavItem--active) .bottomNavIcon {
+  filter: brightness(0.9) saturate(0.7);
+}
+
+/* Light-mode: invert white icons so they show on light backgrounds */
+[data-theme="light"] .bottomNavIcon {
+  filter: brightness(0) saturate(1);
+}
+
+[data-theme="light"] .bottomNavItem:not(.bottomNavItem--active) .bottomNavIcon {
+  filter: brightness(0) saturate(0.7) opacity(0.55);
+}
+
+.bottomNavLabel {
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+

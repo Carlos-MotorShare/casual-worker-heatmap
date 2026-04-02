@@ -127,7 +127,7 @@ export default function ScheduleModal({
       const res = await fetch(`${API_BASE}/api/rosters`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, date: dateIso, blocks }),
+        body: JSON.stringify({ userId, actorUserId: userId, date: dateIso, blocks }),
       })
       if (!res.ok) {
         const msg = (await res.json().catch(() => ({}))) as { error?: string }

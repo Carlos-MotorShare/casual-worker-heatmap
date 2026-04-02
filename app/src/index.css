@@ -8,7 +8,7 @@
   --highlight-amber: #fea613;
 
   --bg-900: #151332;
-  --bg-800: #321b40;
+  --bg-800: #1a2d47;
   --bg-danger: #a82e43;
   --white: #ffffff;
 
@@ -48,6 +48,67 @@
 }
 
 /* Intentionally keeping a single palette-driven theme for now. */
+
+/* ── Light theme override ── */
+[data-theme="light"] {
+  --bg-900: #f5f6fa;
+  --bg-800: #e8eaf0;
+  --bg-danger: #dc2626;
+
+  --bg: var(--bg-900);
+  --text-h: #1a1a2e;
+  --text: #3a3a52;
+  --border: #d0d4e0;
+  --code-bg: #e0e3ec;
+
+  --accent: #1468c8;
+  --accent-bg: color-mix(in srgb, #1468c8, transparent 90%);
+  --accent-border: color-mix(in srgb, #1468c8, transparent 60%);
+  --social-bg: #dfe2ea;
+
+  --shadow:
+    rgba(0, 0, 0, 0.08) 0 8px 20px -8px,
+    rgba(0, 0, 0, 0.04) 0 4px 10px -6px;
+
+  color-scheme: light;
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* Light-mode hover / interactive overrides —
+   In dark mode, hovering mixes a tiny bit of white; in light mode, mix black instead. */
+[data-theme="light"] .rosterDeleteBtn--ghost:hover:not(:disabled),
+[data-theme="light"] .dayModalClose:hover,
+[data-theme="light"] .dayTimelineExpand:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .scheduleModalBtn--ghost:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .bottomNavItem:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .dayModalScheduleBtn {
+  border-color: #c2410c;
+  color: #9a3412;
+}
+[data-theme="light"] .dayModalScheduleBtn:hover {
+  background: rgba(194, 65, 12, 0.1);
+  border-color: #9a3412;
+}
+
+[data-theme="light"] .dayModalRosterRemoveBtn {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: var(--text);
+}
+[data-theme="light"] .dayModalRosterRemoveBtn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.25);
+}
 
 #root {
   width: 1126px;
@@ -154,6 +215,22 @@ code {
   opacity: 1;
 }
 
+.dayModalPanelInner,
+.dayPanel {
+  width: 100%;
+}
+
+.dayPanel {
+  width: min(980px, 100%);
+  margin: 0 auto;
+  text-align: left;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 25%);
+  background: color-mix(in srgb, var(--bg-800), var(--bg-900) 40%);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
 .dayModalHeader {
   display: flex;
   align-items: flex-start;
@@ -197,7 +274,7 @@ code {
 
 .dayModalBody {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(150px, 190px);
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
   gap: 16px 10px;
   padding: 16px 18px 20px;
   align-items: start;
@@ -209,9 +286,74 @@ code {
   }
 }
 
+.dayModalBody--stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  grid-template-columns: unset;
+}
+
+.dayModalSection {
+  display: grid;
+  gap: 6px;
+}
+
+/* Full-width horizontal stats row for stacked layouts */
+.dayModalStatsGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.dayModalStatsRow {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 4px 0 0;
+}
+
+.dayModalStatsRow .dayModalStat {
+  flex: 1 1 0;
+  min-width: 80px;
+}
+
+/* Smaller stat values for pickup/dropoff counts */
+.dayModalStatValue--sm {
+  font-size: 1.05rem;
+}
+
+/* Cars-to-wash on its own full-width line */
+.dayModalCarsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary-500), transparent 88%);
+  border: 1px solid color-mix(in srgb, var(--primary-500), transparent 70%);
+  font-size: 13px;
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--text-h), var(--text) 12%);
+}
+
+.dayModalCarsRow .dayModalCarsEmoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
 .dayModalCol--timeline {
   min-width: 0;
   overflow: visible;
+}
+
+/* On small screens, columns stretch to full parent width */
+@media (max-width: 500px) {
+  .dayModalCol--timeline,
+  .dayModalCol--stats {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 .dayModalTimelineRow {
@@ -230,6 +372,62 @@ code {
 .dayModalTimelineMain {
   min-width: 0;
   overflow: visible;
+}
+
+/* Chart + side stats: horizontal flex layout */
+.dayModalChartWithStats {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.dayModalChartLeft {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.dayModalSideStats {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 90px;
+  padding-top: 2px;
+}
+
+.dayModalSideStat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dayModalSideStatLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: color-mix(in srgb, var(--text-h), var(--text) 35%);
+}
+
+.dayModalSideStatValue {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+@media (max-width: 340px) {
+  .dayModalChartWithStats {
+    flex-direction: column;
+  }
+  .dayModalSideStats {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
 }
 
 .dayModalRosterSummary {
@@ -340,7 +538,7 @@ code {
 .rosterDeleteBackdrop {
   position: fixed;
   inset: 0;
-  z-index: 10060;
+  z-index: 999991;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -350,11 +548,11 @@ code {
 }
 
 .rosterDeletePanel {
-  width: min(400px, 100%);
-  padding: 18px 20px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--border), transparent 30%);
-  background: color-mix(in srgb, var(--bg-900), transparent 8%);
+  width: min(420px, 100%);
+  padding: 22px 24px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 20%);
+  background: color-mix(in srgb, var(--bg-800), var(--bg-900) 30%);
   box-shadow: var(--shadow);
   color: var(--text-h);
 }
@@ -408,12 +606,16 @@ code {
 }
 
 .rosterDeleteBtn {
-  border-radius: 10px;
-  padding: 8px 16px;
-  font-size: 14px;
+  border-radius: 12px;
+  padding: 10px 20px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   border: 1px solid transparent;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    opacity 160ms ease;
 }
 
 .rosterDeleteBtn:disabled {
@@ -422,14 +624,23 @@ code {
 }
 
 .rosterDeleteBtn--ghost {
-  background: transparent;
-  border-color: color-mix(in srgb, var(--border), transparent 30%);
-  color: var(--text);
+  background: color-mix(in srgb, var(--white), transparent 92%);
+  border-color: color-mix(in srgb, var(--border), transparent 15%);
+  color: var(--text-h);
+}
+
+.rosterDeleteBtn--ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--white), transparent 85%);
 }
 
 .rosterDeleteBtn--primary {
-  background: var(--primary-500);
+  background: var(--primary-500, #60a5fa);
   color: white;
+  border-color: color-mix(in srgb, var(--primary-500, #60a5fa), transparent 10%);
+}
+
+.rosterDeleteBtn--primary:hover:not(:disabled) {
+  opacity: 0.92;
 }
 
 .rosterDeleteBtn--danger {
@@ -440,6 +651,22 @@ code {
 
 .rosterDeleteBtn--danger:hover:not(:disabled) {
   background: #dc2626;
+}
+
+.rosterDeleteCancel {
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 30%);
+  background: transparent;
+  color: var(--text);
+}
+
+.rosterDeleteCancel:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .dayModalScheduleWrap {
@@ -455,6 +682,12 @@ code {
     padding-top: 0;
     width: 100%;
   }
+}
+
+.dayModalScheduleWrap--fullWidth {
+  width: 100%;
+  margin-top: 20px;
+  padding-top: 0;
 }
 
 .dayModalScheduleBtn {
@@ -519,18 +752,49 @@ code {
   color: color-mix(in srgb, var(--text-h), var(--text) 18%);
 }
 
+.dayModalStaffAwayList {
+  margin: 8px 0 0 18px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--text-h), var(--text) 18%);
+}
+
+.dayModalStaffAwayList li {
+  margin: 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.dayModalStaffAwayDot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border), transparent 40%);
+}
+
 .dayModalCarsBadge {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 14px;
+  padding: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary-500), transparent 88%);
+  border: 1px solid color-mix(in srgb, var(--primary-500), transparent 70%);
+  overflow: hidden;
+}
+
+.dayModalCarsBadgeHeader {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-top: 14px;
   padding: 8px 12px;
-  border-radius: 10px;
   font-size: 13px;
   line-height: 1.3;
   color: color-mix(in srgb, var(--text-h), var(--text) 12%);
-  background: color-mix(in srgb, var(--primary-500), transparent 88%);
-  border: 1px solid color-mix(in srgb, var(--primary-500), transparent 70%);
 }
 
 .dayModalCarsEmoji {
@@ -548,7 +812,7 @@ code {
   gap: 8px 10px;
   align-items: stretch;
   width: 100%;
-  max-width: min(360px, 100%);
+  max-width: min(340px, 100%);
   overflow: visible;
 }
 
@@ -752,7 +1016,7 @@ code {
   margin-left: auto;
   margin-right: auto;
   transform: none;
-  z-index: 10050;
+  z-index: 9999999;
   box-sizing: border-box;
   padding: 6px 8px;
   border-radius: 8px;
@@ -782,6 +1046,19 @@ code {
   grid-row: 1;
   margin: 0;
   font-size: 11px;
-  white-space: nowrap;
+  white-space: normal;
   color: color-mix(in srgb, var(--text-h), var(--text) 40%);
+}
+
+.dayModalDirtyCarsFullWidth {
+  width: 100%;
+  max-width: 100%;
+  margin-top: 12px; /* optional spacing from above section */
+}
+
+.dayModalStatsMerged {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
 }

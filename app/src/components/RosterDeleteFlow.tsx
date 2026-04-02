@@ -12,6 +12,7 @@ type RosterDeleteFlowProps = {
   actorUserId: string
   onClose: () => void
   onDeleted: () => void
+  isWeekendOnly?: boolean
 }
 
 export default function RosterDeleteFlow({
@@ -19,6 +20,7 @@ export default function RosterDeleteFlow({
   actorUserId,
   onClose,
   onDeleted,
+  isWeekendOnly = false,
 }: RosterDeleteFlowProps) {
   const titleId = useId()
   const [phase, setPhase] = useState<Phase>('pick')
@@ -28,11 +30,17 @@ export default function RosterDeleteFlow({
 
   useEffect(() => {
     if (!line) return
-    setPhase('pick')
-    setSelectedBlockId(line.blocks.length === 1 ? line.blocks[0].blockId : null)
+    // For weekend-only shifts or single-block rosters, skip directly to confirm
+    if (isWeekendOnly || line.blocks.length === 1) {
+      setPhase('confirm')
+      setSelectedBlockId(line.blocks[0]?.blockId ?? null)
+    } else {
+      setPhase('pick')
+      setSelectedBlockId(null)
+    }
     setError(null)
     setBusy(false)
-  }, [line])
+  }, [line, isWeekendOnly])
 
   useEffect(() => {
     if (!line) return
@@ -151,11 +159,15 @@ export default function RosterDeleteFlow({
                 className="rosterDeleteBtn rosterDeleteBtn--ghost"
                 disabled={busy}
                 onClick={() => {
-                  setPhase('pick')
-                  setError(null)
+                  if (isWeekendOnly || (line && line.blocks.length <= 1)) {
+                    onClose()
+                  } else {
+                    setPhase('pick')
+                    setError(null)
+                  }
                 }}
               >
-                Back
+                {isWeekendOnly || (line && line.blocks.length <= 1) ? 'Cancel' : 'Back'}
               </button>
               <button
                 type="button"

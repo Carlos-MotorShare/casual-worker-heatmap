@@ -51,7 +51,8 @@ function broadcast(event, data) {
  *   dropoffsList: Array<{ id: string, time: string, vehicle?: string }>,
  *   carsToWash: number,
  *   staffAwayWeighted: number,
- *   staffAwayCount: number
+ *   staffAwayCount: number,
+ *   staffsAway?: Array<{ staffName: string, startDate: string, endDate: string, reason: string }>
  * }} StaffingDayEntry
  */
 
@@ -59,7 +60,8 @@ function broadcast(event, data) {
  * Airtable webhook body: one snapshot with multiple days.
  * @typedef {{
  *   generatedAt: string,
- *   days: StaffingDayEntry[]
+ *   days: StaffingDayEntry[],
+ *   staffsAway: Array<{ staffName: string, startDate: string, endDate: string, reason: string }>
  * }} StaffingPayload
  */
 
@@ -67,7 +69,8 @@ function broadcast(event, data) {
  * Client-facing shape (unchanged for existing frontend).
  * @typedef {{
  *   generatedAt: string | null,
- *   days: StaffingDayEntry[]
+ *   days: StaffingDayEntry[],
+ *   staffsAway: Array<{ staffName: string, startDate: string, endDate: string, reason: string }>
  * }} ClientStaffingPayload
  */
 
@@ -156,10 +159,11 @@ function normalizeDay(day) {
       carsToWash: 0,
       staffAwayWeighted: 0,
       staffAwayCount: 0,
+      staffsAway: [],
     };
   }
   const d = /** @type {Record<string, unknown>} */ (day);
-  return {
+  const out = {
     date: typeof d.date === "string" ? d.date : "",
     pickups: readDayNumeric(d, ["pickups"]),
     dropoffs: readDayNumeric(d, ["dropoffs"]),
@@ -169,27 +173,86 @@ function normalizeDay(day) {
     carsToWash: readDayNumeric(d, ["cars_to_wash", "carsToWash"]),
     staffAwayWeighted: readDayNumeric(d, ["staff_away_weighted", "staffAwayWeighted"]),
     staffAwayCount: readDayNumeric(d, ["staff_away_count", "staffAwayCount"]),
+    staffsAway: normalizeStaffsAway(
+      d.staffsAway ?? d.staffs_away ?? d.staffsData ?? d.staffs_data,
+    ),
   };
+  
+  // Preserve dirtyCars if present
+  const dirtyCarsRaw = d.dirtyCars ?? d.dirty_cars;
+  if (Array.isArray(dirtyCarsRaw)) {
+    out.dirtyCars = dirtyCarsRaw.filter((car) => {
+      if (!car || typeof car !== "object") return false;
+      const c = /** @type {Record<string, unknown>} */ (car);
+      return typeof c.vehicleName === "string" || typeof c.vehicle_name === "string";
+    }).map((car) => {
+      const c = /** @type {Record<string, unknown>} */ (car);
+      return {
+        vehicleName: typeof c.vehicleName === "string" ? c.vehicleName : String(c.vehicle_name ?? ""),
+        nextPickupDateTime: typeof c.nextPickupDateTime === "string" ? c.nextPickupDateTime : (typeof c.next_pickup_date_time === "string" ? c.next_pickup_date_time : null),
+      };
+    });
+  }
+  
+  return out;
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {Array<{ staffName: string, startDate: string, endDate: string, reason: string }>}
+ */
+function normalizeStaffsAway(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const o = /** @type {Record<string, unknown>} */ (item);
+    const staffName =
+      typeof o.staffName === "string"
+        ? o.staffName
+        : typeof o.staff_name === "string"
+          ? o.staff_name
+          : "";
+    const startDate =
+      typeof o.startDate === "string"
+        ? o.startDate
+        : typeof o.start_date === "string"
+          ? o.start_date
+          : "";
+    const endDate =
+      typeof o.endDate === "string"
+        ? o.endDate
+        : typeof o.end_date === "string"
+          ? o.end_date
+          : "";
+    const reason = typeof o.reason === "string" ? o.reason : "";
+    if (!staffName || !startDate || !endDate) continue;
+    out.push({ staffName, startDate, endDate, reason });
+  }
+  return out;
 }
 
 /**
  * Map a Supabase row to the JSON shape the frontend expects.
- * @param {{ generated_at?: string | null, days?: unknown } | null | undefined} row
+ * @param {{ generated_at?: string | null, days?: unknown, staffs_away?: unknown, staffsAway?: unknown, staffs_data?: unknown, staffsData?: unknown } | null | undefined} row
  * @returns {ClientStaffingPayload}
  */
 function rowToClientPayload(row) {
   if (!row) {
-    return { generatedAt: null, days: [] };
+    return { generatedAt: null, days: [], staffsAway: [] };
   }
-  const rawDays = row.days;
+  const r = /** @type {Record<string, unknown>} */ (row);
+  const rawDays = r.days;
   const days = Array.isArray(rawDays) ? rawDays.map((d) => normalizeDay(d)) : [];
   const generatedAt =
-    typeof row.generated_at === "string"
-      ? row.generated_at
-      : row.generated_at == null
+    typeof r.generated_at === "string"
+      ? r.generated_at
+      : r.generated_at == null
         ? null
-        : String(row.generated_at);
-  return { generatedAt, days };
+        : String(r.generated_at);
+  const staffsAwayRaw = r.staffs_away ?? r.staffsAway ?? r.staffs_data ?? r.staffsData;
+  const staffsAway = normalizeStaffsAway(staffsAwayRaw);
+  return { generatedAt, days, staffsAway };
 }
 
 /**
@@ -304,6 +367,7 @@ function coerceIncomingPayload(value) {
     return {
       generatedAt: new Date().toISOString(),
       days: value,
+      staffsAway: [],
     };
   }
 
@@ -318,9 +382,13 @@ function coerceIncomingPayload(value) {
         return null;
       }
     }
+    const staffsAway = normalizeStaffsAway(
+      obj.staffsAway ?? obj.staffs_away ?? obj.staffsData ?? obj.staffs_data,
+    );
     return {
       generatedAt: obj.generatedAt,
       days,
+      staffsAway,
     };
   }
 
@@ -328,6 +396,7 @@ function coerceIncomingPayload(value) {
     return {
       generatedAt: new Date().toISOString(),
       days: [obj],
+      staffsAway: [],
     };
   }
 
@@ -343,6 +412,11 @@ app.post("/api/airtable", async (req, res) => {
   const daysCount = Array.isArray(payload?.days) ? payload.days.length : 0;
 
   console.log(`[airtable] received payload generatedAt=${generatedAt} days=${daysCount}`);
+  if (payload?.days?.[0]) {
+    const firstDay = /** @type {Record<string, unknown>} */ (payload.days[0]);
+    console.log(`[airtable] days[0] keys:`, Object.keys(firstDay));
+    console.log(`[airtable] days[0] dirtyCars:`, firstDay.dirtyCars);
+  }
 
   if (!payload) {
     console.error("[airtable] invalid payload format.");
@@ -355,8 +429,9 @@ app.post("/api/airtable", async (req, res) => {
       .insert({
         generated_at: payload.generatedAt,
         days: payload.days,
+        staffs_away: payload.staffsAway ?? [],
       })
-      .select("id, generated_at, days")
+      .select("id, generated_at, days, staffs_away")
       .single();
 
     if (insertError) {
@@ -395,7 +470,7 @@ app.get("/api/data", async (_req, res) => {
   try {
     const { data, error } = await supabase
       .from("staffing_data")
-      .select("generated_at, days")
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -410,6 +485,7 @@ app.get("/api/data", async (_req, res) => {
       return res.status(200).json({
         generatedAt: null,
         days: [],
+        staffsAway: [],
       });
     }
 
@@ -427,6 +503,36 @@ app.get("/api/data", async (_req, res) => {
 
 function isIsoDateString(value) {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+/** Civil date YYYY-MM-DD → Sat/Sun in UTC (matches roster `date` weekday). */
+function isWeekendIso(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return false;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const day = new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
+  return day === 0 || day === 6;
+}
+
+/**
+ * @param {string} userId
+ * @returns {Promise<{ admin: boolean, canRoster: boolean } | null>}
+ */
+async function getUserFlags(userId) {
+  const { data, error } = await supabase.rpc("get_user_flags", { p_user_id: userId });
+  if (error) {
+    console.error("[users] get_user_flags failed:", error);
+    return null;
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== "object") return null;
+  const o = /** @type {Record<string, unknown>} */ (row);
+  return {
+    admin: o.admin === true,
+    canRoster: o.can_roster === true,
+  };
 }
 
 /**
@@ -477,11 +583,74 @@ app.post("/api/auth/login", async (req, res) => {
         username: row.username,
         colour: typeof row.colour === "string" ? row.colour : null,
         admin: Boolean(row.admin),
+        canRoster: row.can_roster === true,
       },
     });
   } catch (e) {
     console.error("[auth] unexpected error:", e);
     return res.status(500).json({ error: "Login failed." });
+  }
+});
+
+app.get("/api/worker-users", async (_req, res) => {
+  try {
+    const { data, error } = await supabase.rpc("list_worker_users");
+    if (error) {
+      console.error("[worker-users] rpc failed:", error);
+      return res.status(500).json({ error: "Failed to load workers." });
+    }
+    const list = Array.isArray(data) ? data : [];
+    const rows = list.map((r) => ({
+      id: typeof r.id === "string" ? r.id : "",
+      username: typeof r.username === "string" ? r.username : "",
+      colour: typeof r.colour === "string" ? r.colour : null,
+    }));
+    return res.status(200).json({ rows });
+  } catch (e) {
+    console.error("[worker-users] unexpected error:", e);
+    return res.status(500).json({ error: "Failed to load workers." });
+  }
+});
+
+app.get("/api/admin-users", async (req, res) => {
+  try {
+    const excludeUserId = typeof req.query.exclude === "string" ? req.query.exclude : null;
+    const { data, error } = await supabase.rpc("list_admin_users", {
+      exclude_user_id: excludeUserId ? excludeUserId : null,
+    });
+    if (error) {
+      console.error("[admin-users] rpc failed:", error);
+      return res.status(500).json({ error: "Failed to load admins." });
+    }
+    const list = Array.isArray(data) ? data : [];
+    const rows = list.map((r) => ({
+      id: typeof r.id === "string" ? r.id : "",
+      username: typeof r.username === "string" ? r.username : "",
+      colour: typeof r.colour === "string" ? r.colour : null,
+    }));
+    return res.status(200).json({ rows });
+  } catch (e) {
+    console.error("[admin-users] unexpected error:", e);
+    return res.status(500).json({ error: "Failed to load admins." });
+  }
+});
+
+app.get("/api/staff-colours", async (_req, res) => {
+  try {
+    const { data, error } = await supabase.rpc("staff_colours");
+    if (error) {
+      console.error("[staff-colours] rpc failed:", error);
+      return res.status(500).json({ error: "Failed to load staff colours." });
+    }
+    const list = Array.isArray(data) ? data : [];
+    const rows = list.map((r) => ({
+      username: typeof r.username === "string" ? r.username : "",
+      colour: typeof r.colour === "string" ? r.colour : null,
+    }));
+    return res.status(200).json({ rows });
+  } catch (e) {
+    console.error("[staff-colours] unexpected error:", e);
+    return res.status(500).json({ error: "Failed to load staff colours." });
   }
 });
 
@@ -512,6 +681,7 @@ app.get("/api/rosters", async (req, res) => {
       date: normalizePgDateString(r.roster_date),
       username: r.username,
       colour: typeof r.colour === "string" ? r.colour : r.colour ?? null,
+      rosterUserIsAdmin: r.roster_user_admin === true,
       startTime: normalizePgTimeString(r.start_time),
       endTime: normalizePgTimeString(r.end_time),
     }));
@@ -526,6 +696,8 @@ app.post("/api/rosters", async (req, res) => {
   const body = req.body && typeof req.body === "object" ? req.body : {};
   const userId = typeof body.userId === "string" ? body.userId : "";
   const date = typeof body.date === "string" ? body.date : "";
+  const actorUserId =
+    typeof body.actorUserId === "string" && body.actorUserId.trim() ? body.actorUserId.trim() : userId;
   const blocks = /** @type {unknown} */ (body.blocks ?? []);
 
   if (!userId || !isIsoDateString(date)) {
@@ -549,6 +721,30 @@ app.post("/api/rosters", async (req, res) => {
   }
 
   try {
+    const [actorFlags, targetFlags] = await Promise.all([
+      getUserFlags(actorUserId),
+      getUserFlags(userId),
+    ]);
+    if (!actorFlags || !targetFlags) {
+      return res.status(403).json({ error: "Could not verify permissions." });
+    }
+
+    const weekend = isWeekendIso(date);
+    const self = actorUserId === userId;
+
+    if (!self) {
+      if (!actorFlags.canRoster) {
+        return res.status(403).json({ error: "You cannot assign rosters for other users." });
+      }
+      if (!weekend) {
+        return res.status(403).json({ error: "You can only assign weekend shifts for others." });
+      }
+    } else if (targetFlags.admin) {
+      if (!weekend) {
+        return res.status(403).json({ error: "Admins can only self-roster on weekends." });
+      }
+    }
+    // Non-admin users may self-roster on any day (weekday or weekend).
     const { error: deleteError } = await supabase
       .from("rosters")
       .delete()
@@ -626,6 +822,23 @@ app.post("/api/rosters/delete-block", async (req, res) => {
   }
 });
 
+app.post('/api/webhooks/airtable/vehicle-cleaned', async (req, res) => {
+  const { vehicleName, timestamp } = req.body
+  
+  // Forward to Airtable webhook URL
+  try {
+    await fetch('https://hooks.airtable.com/workflows/v1/genericWebhook/apprkS2KIK9UVyF14/wfli6NJF5p9Kcu9Dk/wtr36Ftt2QXX3pBwl', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vehicleName, timestamp })
+    })
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('Webhook error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 app.get("/api/stream", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -637,7 +850,7 @@ app.get("/api/stream", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("staffing_data")
-      .select("generated_at, days")
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();

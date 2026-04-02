@@ -5,6 +5,10 @@
     <link rel="icon" type="image/png" href="/faviconms.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Motorshare Roster</title>
+    <script>
+      // Apply saved theme before first paint to avoid flash
+      try{var t=localStorage.getItem('app-theme');if(t==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}
+    </script>
   </head>
   <body>
     <div id="root"></div>

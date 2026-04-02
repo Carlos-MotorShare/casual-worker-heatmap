@@ -1,11 +1,16 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import './HeatmapCalendar.css'
 import DayDetailModal from './DayDetailModal'
-import { summarizeRosterForDay } from '../lib/rosterHelpers'
+import {
+  isWeekendIso,
+  rosterRowsForHeatmap,
+  summarizeRosterForDay,
+} from '../lib/rosterHelpers'
 import type { RosterRow, User } from '../lib/rosterTypes'
 import {
   calculateStaffingPressureScoreRaw,
   type StaffingDay,
+  type DirtyCar,
 } from '../staffingDay'
 
 export type { StaffingDay } from '../staffingDay'
@@ -63,6 +68,8 @@ export type HeatmapCalendarProps = {
   days: StaffingDay[]
   title?: string
   rosterByDate?: Record<string, RosterRow[]>
+  staffsAway?: Array<{ staffName: string; startDate: string; endDate: string; reason: string }>
+  dirtyCars?: DirtyCar[]
   canSchedule?: boolean
   onScheduleRequest?: (day: StaffingDay) => void
   currentUser?: User | null
@@ -73,12 +80,23 @@ export default function HeatmapCalendar({
   days,
   title = 'Staffing pressure',
   rosterByDate,
+  staffsAway = [],
+  dirtyCars = [],
   canSchedule = false,
   onScheduleRequest,
   currentUser = null,
   onRosterBlockDeleted,
 }: HeatmapCalendarProps) {
   const [modalDay, setModalDay] = useState<StaffingDay | null>(null)
+
+  const heatmapRosterByDate = useMemo(() => {
+    if (!rosterByDate) return undefined
+    const out: Record<string, RosterRow[]> = {}
+    for (const [iso, rows] of Object.entries(rosterByDate)) {
+      out[iso] = rosterRowsForHeatmap(rows)
+    }
+    return out
+  }, [rosterByDate])
 
   const openDay = useCallback(
     (day: StaffingDay) => {
@@ -102,7 +120,7 @@ export default function HeatmapCalendar({
     const { dow, short } = formatDay(day.date)
     const { label } = colorForScore(scoreInt)
     const rosterSummary = summarizeRosterForDay(
-      rosterByDate?.[day.date] ?? [],
+      heatmapRosterByDate?.[day.date] ?? [],
     )
 
     return {
@@ -122,9 +140,13 @@ export default function HeatmapCalendar({
         day={modalDay}
         onClose={() => setModalDay(null)}
         rosterRows={
-          modalDay ? rosterByDate?.[modalDay.date] ?? [] : []
+          modalDay ? heatmapRosterByDate?.[modalDay.date] ?? [] : []
         }
-        canSchedule={canSchedule}
+        staffsAway={staffsAway}
+        dirtyCars={dirtyCars}
+        canSchedule={
+          canSchedule && (!modalDay || !isWeekendIso(modalDay.date))
+        }
         currentUser={currentUser}
         onRosterBlockDeleted={onRosterBlockDeleted}
         onScheduleClick={() => {
