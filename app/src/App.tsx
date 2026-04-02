@@ -49,6 +49,7 @@ function monthGridIsoRange(anchor: Date): { start: string; end: string } {
 
 function App() {
   const user = useUserStore((s) => s.user)
+  const setUser = useUserStore((s) => s.setUser)
   const rowsByDate = useRosterStore((s) => s.rowsByDate)
   const loadRosterRange = useRosterStore((s) => s.loadRange)
   const loadAdminUsers = useRosterStore((s) => s.loadAdminUsers)
@@ -56,6 +57,7 @@ function App() {
   const [scheduleDay, setScheduleDay] = useState<StaffingDay | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsEntered, setSettingsEntered] = useState(false)
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<BottomNavKey>('today')
   const prevTabRef = useRef<BottomNavKey>('today')
   const [leavingTab, setLeavingTab] = useState<BottomNavKey | null>(null)
@@ -610,6 +612,61 @@ function App() {
                   <div className="settingsBody">
                     <p className="settingsLabel">WhatsApp notifications</p>
                     <p className="settingsSubtext">Coming soon</p>
+
+                    <div className="settingsLogoutWrap">
+                      <button
+                        type="button"
+                        className="settingsLogoutBtn"
+                        onClick={() => setLogoutConfirmOpen(true)}
+                      >
+                        Log out
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>,
+              document.body,
+            )
+          : null}
+
+        {/* ── Logout confirmation dialog ── */}
+        {logoutConfirmOpen
+          ? createPortal(
+              <div
+                className="logoutConfirmBackdrop"
+                role="presentation"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) setLogoutConfirmOpen(false)
+                }}
+              >
+                <div
+                  className="logoutConfirmPanel"
+                  role="alertdialog"
+                  aria-label="Confirm log out"
+                >
+                  <h3 className="logoutConfirmTitle">Log out?</h3>
+                  <p className="logoutConfirmText">
+                    Are you sure you want to log out?
+                  </p>
+                  <div className="logoutConfirmActions">
+                    <button
+                      type="button"
+                      className="logoutConfirmBtn logoutConfirmBtn--cancel"
+                      onClick={() => setLogoutConfirmOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="logoutConfirmBtn logoutConfirmBtn--confirm"
+                      onClick={() => {
+                        setLogoutConfirmOpen(false)
+                        closeSettings()
+                        setUser(null)
+                      }}
+                    >
+                      Log out
+                    </button>
                   </div>
                 </div>
               </div>,

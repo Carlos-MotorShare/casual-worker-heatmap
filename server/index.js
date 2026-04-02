@@ -234,7 +234,7 @@ function normalizeStaffsAway(raw) {
 
 /**
  * Map a Supabase row to the JSON shape the frontend expects.
- * @param {{ generated_at?: string | null, days?: unknown, staffs_away?: unknown, staffsAway?: unknown, staffs_data?: unknown, staffsData?: unknown } | null | undefined} row
+ * @param {{ generated_at?: string | null, days?: unknown, staffsAway?: unknown, staffs_data?: unknown, staffsData?: unknown } | null | undefined} row
  * @returns {ClientStaffingPayload}
  */
 function rowToClientPayload(row) {
@@ -250,8 +250,19 @@ function rowToClientPayload(row) {
       : r.generated_at == null
         ? null
         : String(r.generated_at);
+
+  // Try top-level staffs_away first, then fall back to aggregating from per-day data
   const staffsAwayRaw = r.staffs_away ?? r.staffsAway ?? r.staffs_data ?? r.staffsData;
-  const staffsAway = normalizeStaffsAway(staffsAwayRaw);
+  let staffsAway = normalizeStaffsAway(staffsAwayRaw);
+
+  // If no top-level staffsAway, flatten from each day's staffsAway array
+  if (staffsAway.length === 0) {
+    const nested = days.flatMap((d) =>
+      Array.isArray(d.staffsAway) ? d.staffsAway : []
+    );
+    staffsAway = normalizeStaffsAway(nested);
+  }
+
   return { generatedAt, days, staffsAway };
 }
 
@@ -429,9 +440,8 @@ app.post("/api/airtable", async (req, res) => {
       .insert({
         generated_at: payload.generatedAt,
         days: payload.days,
-        staffs_away: payload.staffsAway ?? [],
       })
-      .select("id, generated_at, days, staffs_away")
+      .select("id, generated_at, days")
       .single();
 
     if (insertError) {
@@ -729,22 +739,15 @@ app.post("/api/rosters", async (req, res) => {
       return res.status(403).json({ error: "Could not verify permissions." });
     }
 
-    const weekend = isWeekendIso(date);
     const self = actorUserId === userId;
 
     if (!self) {
       if (!actorFlags.canRoster) {
         return res.status(403).json({ error: "You cannot assign rosters for other users." });
       }
-      if (!weekend) {
-        return res.status(403).json({ error: "You can only assign weekend shifts for others." });
-      }
-    } else if (targetFlags.admin) {
-      if (!weekend) {
-        return res.status(403).json({ error: "Admins can only self-roster on weekends." });
-      }
     }
-    // Non-admin users may self-roster on any day (weekday or weekend).
+    // Any user (admin or non-admin) may self-roster on any day.
+    // canRoster users may assign others on any day (weekday, weekend, or public holiday).
     const { error: deleteError } = await supabase
       .from("rosters")
       .delete()

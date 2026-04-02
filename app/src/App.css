@@ -413,3 +413,122 @@
   color: var(--text);
   opacity: 0.7;
 }
+
+/* ── Logout button in settings ── */
+
+.settingsLogoutWrap {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--border), transparent 40%);
+}
+
+.settingsLogoutBtn {
+  width: 100%;
+  padding: 10px 0;
+  border: none;
+  border-radius: 10px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms ease, transform 100ms ease;
+}
+
+.settingsLogoutBtn:hover {
+  background: #dc2626;
+}
+
+.settingsLogoutBtn:active {
+  transform: scale(0.97);
+}
+
+/* ── Logout confirmation dialog ── */
+
+.logoutConfirmBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999994;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.logoutConfirmPanel {
+  background: var(--bg-800);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  width: 100%;
+  max-width: 320px;
+  padding: 24px;
+  text-align: center;
+}
+
+[data-theme="light"] .logoutConfirmPanel {
+  background: #fff;
+}
+
+.logoutConfirmTitle {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.logoutConfirmText {
+  margin: 0 0 20px;
+  font-size: 0.9rem;
+  color: var(--text);
+  opacity: 0.85;
+}
+
+.logoutConfirmActions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.logoutConfirmBtn {
+  flex: 1;
+  padding: 10px 0;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms ease, transform 100ms ease;
+}
+
+.logoutConfirmBtn:active {
+  transform: scale(0.97);
+}
+
+.logoutConfirmBtn--cancel {
+  background: color-mix(in srgb, var(--white), transparent 88%);
+  color: var(--text-h);
+}
+
+.logoutConfirmBtn--cancel:hover {
+  background: color-mix(in srgb, var(--white), transparent 82%);
+}
+
+[data-theme="light"] .logoutConfirmBtn--cancel {
+  background: #e5e7eb;
+  color: #1a1a2e;
+}
+
+[data-theme="light"] .logoutConfirmBtn--cancel:hover {
+  background: #d1d5db;
+}
+
+.logoutConfirmBtn--confirm {
+  background: #ef4444;
+  color: #fff;
+}
+
+.logoutConfirmBtn--confirm:hover {
+  background: #dc2626;
+}

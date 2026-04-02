@@ -251,3 +251,54 @@
   opacity: 0.78;
   line-height: 1.4;
 }
+
+/* ── Public holiday collapsible toggle ── */
+
+.holidayToggleBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-h);
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.holidayToggleArrow {
+  display: inline-block;
+  font-size: 10px;
+  transition: transform 200ms ease;
+  opacity: 0.7;
+}
+
+.holidayToggleArrow--open {
+  transform: rotate(90deg);
+}
+
+.holidayToggleLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.holidayCollapsible {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 250ms ease;
+}
+
+.holidayCollapsible--open {
+  grid-template-rows: 1fr;
+}
+
+.holidayCollapsibleInner {
+  overflow: hidden;
+}
+
+.holidayCollapsible--open .holidayCollapsibleInner {
+  padding-top: 10px;
+}

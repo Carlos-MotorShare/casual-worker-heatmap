@@ -112,20 +112,23 @@ export default function DayDetailPanel({
   const [assignBusy, setAssignBusy] = useState(false)
   const [assignError, setAssignError] = useState<string | null>(null)
   const [confirmAssign, setConfirmAssign] = useState<{ userId: string; username: string } | null>(null)
+  const [holidayExpanded, setHolidayExpanded] = useState(false)
 
-  const showAssign = isWeekend && (currentUser?.canRoster === true)
+  const canRosterUser = currentUser?.canRoster === true
+  const canSelfAssign = currentUser?.admin === true || canRosterUser
+  const showAssign = canRosterUser
   const allDayRows = rosterRowsByDate?.[day.date] ?? rosterRows
-  const showSelfAssign = isWeekend
-    && (currentUser?.admin === true || currentUser?.canRoster === true)
+  const showSelfAssign = canSelfAssign
     && !allDayRows.some((r) => r.userId === currentUser?.id)
 
-  // Load admin users when weekend panel is shown
+  // Load admin users when panel is shown for canRoster/admin users
   useEffect(() => {
-    if (!isWeekend || !currentUser) return
+    if (!currentUser) return
+    if (!(currentUser.admin || currentUser.canRoster)) return
     if (!adminUsersLoaded) {
       void loadAdminUsers(currentUser.id)
     }
-  }, [isWeekend, currentUser, adminUsersLoaded, loadAdminUsers])
+  }, [currentUser, adminUsersLoaded, loadAdminUsers])
 
   const rosteredIds = useMemo(() => {
     // Use full roster for the day (including non-admin self-rosters) to prevent duplicates
@@ -138,12 +141,11 @@ export default function DayDetailPanel({
   }, [adminUsers, rosteredIds, currentUser])
 
   const weekendRosterLines = useMemo(() => {
-    // For weekend days, only show admin users in the weekend roster section
-    if (!isWeekend) return []
+    // Show admin-assigned roster lines for any day (weekends + public holidays)
     const allRows = rosterRowsByDate?.[day.date] ?? rosterRows
     const adminOnly = allRows.filter((r) => r.rosterUserIsAdmin === true)
     return rosterSummaryDetailForDay(adminOnly)
-  }, [isWeekend, rosterRowsByDate, day.date, rosterRows])
+  }, [rosterRowsByDate, day.date, rosterRows])
 
   const saveRosterForUser = async (targetUserId: string) => {
     if (!currentUser) return
@@ -284,10 +286,9 @@ export default function DayDetailPanel({
     </div>
   ) : null
 
-  const weekendRosterSection = isWeekend ? (
-    <div className="dayModalSection">
-      <p className="dayModalStaffLine">Weekend roster</p>
-
+  /* ── Roster inner content (shared between weekend + holiday modes) ── */
+  const rosterInnerContent = (
+    <>
       {/* Rostered workers list */}
       {weekendRosterLines.length === 0 ? (
         <p style={{ fontSize: 13, opacity: 0.7, margin: 0 }}>No one assigned yet.</p>
@@ -364,8 +365,99 @@ export default function DayDetailPanel({
           )}
         </div>
       ) : null}
+    </>
+  )
+
+  /* ── Read-only roster view (for Today page + non-canRoster users on weekends) ── */
+  /* Admin users also get a "Work this day" self-assign button on weekends. */
+  const adminSelfAssignOnWeekend = isWeekend && showSelfAssign && currentUser?.admin === true
+  const rosterReadOnlySection = isWeekend && (weekendRosterLines.length > 0 || adminSelfAssignOnWeekend) ? (
+    <div className="dayModalSection">
+      <p className="dayModalStaffLine">Weekend roster</p>
+      {weekendRosterLines.length > 0 ? (
+        <div className="dayModalRosterSummary" aria-label="Weekend roster" style={{ marginTop: 0 }}>
+          {weekendRosterLines.map((line) => (
+            <div key={`wknd-ro-${line.userId}`} className="dayModalRosterSummaryLine">
+              <div className="dayModalRosterSummaryText">
+                <span
+                  className="dayModalRosterSummaryColour"
+                  style={{ background: resolveUserColour(line.colour) }}
+                  aria-hidden
+                />
+                <span className="dayModalRosterSummaryName">{line.username}</span>
+                <span className="dayModalRosterSummaryRanges">{line.rangesDisplay}</span>
+                {canActorRemoveRosterLine(line, currentUser) ? (
+                  <button
+                    type="button"
+                    className="dayModalRosterRemoveBtn"
+                    aria-label={`Remove a shift for ${line.username}`}
+                    title="Remove a shift"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDeleteLine(line)
+                    }}
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p style={{ fontSize: 13, opacity: 0.7, margin: 0 }}>No one assigned yet.</p>
+      )}
+
+      {/* Admin self-assign on weekends */}
+      {adminSelfAssignOnWeekend ? (
+        <button
+          type="button"
+          className="weekendRosterSelfBtn"
+          disabled={assignBusy}
+          onClick={() => setConfirmAssign({ userId: currentUser!.id, username: currentUser!.username })}
+          style={{ marginTop: 8 }}
+        >
+          Work this day
+        </button>
+      ) : null}
     </div>
   ) : null
+
+  /* ── Full roster section with assign controls (only for canRoster users, never on Today) ── */
+  const weekendRosterSection = canRosterUser ? (
+    <div className="dayModalSection">
+      {isWeekend ? (
+        <>
+          <p className="dayModalStaffLine">Weekend roster</p>
+          {rosterInnerContent}
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="holidayToggleBtn"
+            onClick={() => setHolidayExpanded((v) => !v)}
+            aria-expanded={holidayExpanded}
+          >
+            <span
+              className={`holidayToggleArrow${holidayExpanded ? ' holidayToggleArrow--open' : ''}`}
+              aria-hidden
+            >
+              ▶
+            </span>
+            <span className="holidayToggleLabel">Public holiday?</span>
+          </button>
+          <div
+            className={`holidayCollapsible${holidayExpanded ? ' holidayCollapsible--open' : ''}`}
+          >
+            <div className="holidayCollapsibleInner">
+              {rosterInnerContent}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  ) : rosterReadOnlySection
 
   const dirtyCarsSection = dirtyCars.length > 0 ? (
     <div className="dayModalSection dayModalDirtyCarsFullWidth">
@@ -381,11 +473,12 @@ export default function DayDetailPanel({
 
   const renderBody = () => {
     if (variant === 'today') {
-      // Today: chart (with stats) → weekend roster → staff away → dirty cars
+      // Today: chart (with stats) → weekend roster (read-only) → staff away → dirty cars
+      // Never show the "Public holiday?" dropdown or assign controls on Today page
       return (
         <div className="dayModalBody dayModalBody--stacked">
           {chartSection}
-          {weekendRosterSection}
+          {rosterReadOnlySection}
           {staffAwaySection}
           {dirtyCarsSection}
         </div>

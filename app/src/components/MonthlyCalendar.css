@@ -671,3 +671,50 @@
 .monthCalLegendHeat--red   { background: #ef4444; }
 
 /* ── Stacked body variant is in index.css ── */
+
+/* ── Laptop / desktop scaling (≥730px) ── */
+
+@media (min-width: 730px) {
+  .monthCalWrap {
+    width: min(820px, 92%);
+  }
+
+  .monthCalCellInner {
+    gap: 4px;
+    padding: 6px 4px;
+  }
+
+  .monthCalDayNum {
+    font-size: 16px;
+  }
+
+  .monthCalCarsCount {
+    font-size: 14px;
+  }
+
+  .monthCalCasualIndicator {
+    font-size: 14px;
+  }
+
+  .monthCalWeekendBubble {
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+  }
+
+  .monthCalWeekendBubbles {
+    gap: 3px;
+    padding: 0 2px;
+  }
+
+  .monthCalAwayLine {
+    height: 5px;
+    margin-left: 10px;
+    margin-right: 10px;
+  }
+
+  .monthCalAwayLines {
+    gap: 3px;
+    bottom: 6px;
+  }
+}
