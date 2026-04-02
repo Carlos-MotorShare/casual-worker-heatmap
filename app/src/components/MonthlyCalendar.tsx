@@ -627,11 +627,13 @@ export default function MonthlyCalendar({
           const startX = e.clientX
           const startY = e.clientY
           const pid = e.pointerId
+          let lastX = startX
           dragRef.current = {
             startX, startY, active: true, blocked: false, pointerId: pid,
           }
           const onMove = (ev: PointerEvent) => {
             if (ev.pointerId !== pid) return
+            lastX = ev.clientX
             const dx = ev.clientX - startX
             const dy = ev.clientY - startY
             const s = dragRef.current
@@ -642,18 +644,28 @@ export default function MonthlyCalendar({
           const cleanup = () => {
             document.removeEventListener('pointermove', onMove)
             document.removeEventListener('pointerup', onUp)
-            document.removeEventListener('pointercancel', onUp)
+            document.removeEventListener('pointercancel', onCancel)
           }
           const onUp = (ev: PointerEvent) => {
             if (ev.pointerId !== pid) return
             cleanup()
+            const wasBlocked = dragRef.current.blocked
             dragRef.current.active = false
             dragRef.current.pointerId = null
-            commitSwipe(ev.clientX - startX)
+            if (!wasBlocked) {
+              commitSwipe(lastX - startX)
+            }
+          }
+          const onCancel = (ev: PointerEvent) => {
+            if (ev.pointerId !== pid) return
+            cleanup()
+            dragRef.current.active = false
+            dragRef.current.pointerId = null
+            // Don't navigate on cancel — browser took over the gesture
           }
           document.addEventListener('pointermove', onMove)
           document.addEventListener('pointerup', onUp)
-          document.addEventListener('pointercancel', onUp)
+          document.addEventListener('pointercancel', onCancel)
         }}
       >
         <div

@@ -140,7 +140,7 @@
   background: color-mix(in srgb, var(--bg-800), var(--bg-900) 35%);
   box-shadow: var(--shadow);
   overflow: hidden;
-  touch-action: manipulation;
+  touch-action: pan-y;
   min-width: 0;
 }
 

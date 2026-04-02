@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Ring } from 'ldrs/react'
 import 'ldrs/react/Ring.css'
 import './App.css'
@@ -16,6 +17,10 @@ import calendarIcon from './assets/calendar.png'
 import eventsIcon from './assets/events_white.png'
 import moonIcon from './assets/moon.png'
 import sunIcon from './assets/sun_white.png'
+import darkBG from './assets/darkBG.png'
+import lightBG from './assets/BG_white.png'
+import settingsIcon from './assets/settings.png'
+import settingsWhiteIcon from './assets/settings_white.png'
 import DayDetailPanel from './components/DayDetailPanel'
 import MonthlyCalendar from './components/MonthlyCalendar'
 import { useTheme } from './lib/useTheme'
@@ -49,6 +54,8 @@ function App() {
   const loadAdminUsers = useRosterStore((s) => s.loadAdminUsers)
   const { theme, toggle: toggleTheme } = useTheme()
   const [scheduleDay, setScheduleDay] = useState<StaffingDay | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsEntered, setSettingsEntered] = useState(false)
   const [activeTab, setActiveTab] = useState<BottomNavKey>('today')
   const prevTabRef = useRef<BottomNavKey>('today')
   const [leavingTab, setLeavingTab] = useState<BottomNavKey | null>(null)
@@ -389,6 +396,28 @@ function App() {
     return () => cancelAnimationFrame(id)
   }, [activeTab])
 
+  /* ── Settings popup enter animation ── */
+  useEffect(() => {
+    if (!settingsOpen) {
+      setSettingsEntered(false)
+      return
+    }
+    setSettingsEntered(false)
+    const id = requestAnimationFrame(() => setSettingsEntered(true))
+    return () => cancelAnimationFrame(id)
+  }, [settingsOpen])
+
+  /* ── Close settings on Escape ── */
+  const closeSettings = useCallback(() => setSettingsOpen(false), [])
+  useEffect(() => {
+    if (!settingsOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeSettings()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [settingsOpen, closeSettings])
+
   return (
     <PasswordGate>
       <>
@@ -431,8 +460,43 @@ function App() {
                   .join(' ')}
                 aria-hidden={activeTab !== 'today'}
               >
+                <div className="todayTopRightActions">
+                  <button
+                    type="button"
+                    className="themeToggleBtn"
+                    onClick={() => setSettingsOpen(true)}
+                    aria-label="Open settings"
+                    title="Settings"
+                  >
+                    <img
+                      src={theme === 'dark' ? settingsWhiteIcon : settingsIcon}
+                      alt=""
+                      aria-hidden="true"
+                      className="themeToggleIcon"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className="themeToggleBtn"
+                    onClick={toggleTheme}
+                    aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                    title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                  >
+                    <img
+                      src={theme === 'dark' ? sunIcon : moonIcon}
+                      alt=""
+                      aria-hidden="true"
+                      className="themeToggleIcon"
+                    />
+                  </button>
+                </div>
                 <section className="center">
                   <div style={{ width: 'min(980px, 100%)', textAlign: 'left' }}>
+                    <img
+                      src={theme === 'dark' ? darkBG : lightBG}
+                      alt="Logo"
+                      className="todayPageLogo"
+                    />
                     {greeting ? (
                       <p
                         style={{
@@ -445,23 +509,7 @@ function App() {
                         {greeting}
                       </p>
                     ) : null}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                      <h1 style={{ marginBottom: 12 }}>Today</h1>
-                      <button
-                        type="button"
-                        className="themeToggleBtn"
-                        onClick={toggleTheme}
-                        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                        title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-                      >
-                        <img
-                          src={theme === 'dark' ? sunIcon : moonIcon}
-                          alt=""
-                          aria-hidden="true"
-                          className="themeToggleIcon"
-                        />
-                      </button>
-                    </div>
+                    <h1 style={{ marginBottom: 12 }}>Today</h1>
                     <p style={{ marginBottom: 18, opacity: 0.9 }}>
                       Current-day schedule, roster, and workload.
                     </p>
@@ -531,6 +579,44 @@ function App() {
             onSaved={reloadAllRosters}
           />
         </div>
+
+        {/* ── Settings top-sheet popup ── */}
+        {settingsOpen
+          ? createPortal(
+              <div
+                className={`settingsBackdrop${settingsEntered ? ' settingsBackdrop--visible' : ''}`}
+                role="presentation"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) closeSettings()
+                }}
+              >
+                <div
+                  className={`settingsPanel${settingsEntered ? ' settingsPanel--visible' : ''}`}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Settings"
+                >
+                  <div className="settingsHeader">
+                    <h2 className="settingsTitle">Settings</h2>
+                    <button
+                      type="button"
+                      className="settingsClose"
+                      onClick={closeSettings}
+                      aria-label="Close settings"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="settingsBody">
+                    <p className="settingsLabel">WhatsApp notifications</p>
+                    <p className="settingsSubtext">Coming soon</p>
+                  </div>
+                </div>
+              </div>,
+              document.body,
+            )
+          : null}
+
         {showMainLoader ? (
           <div
             role="presentation"
