@@ -28,25 +28,6 @@ import { useTheme } from './lib/useTheme'
 const API_BASE_URL =
   import.meta.env.REACT_APP_API_URL?.toString().trim() || 'http://localhost:3001'
 
-/** First/last ISO dates in the 6×7 month grid (weeks start Monday). */
-function monthGridIsoRange(anchor: Date): { start: string; end: string } {
-  const monthStart = new Date(anchor.getFullYear(), anchor.getMonth(), 1)
-  const startDow = monthStart.getDay()
-  const weekStart = 1
-  const offset = (startDow - weekStart + 7) % 7
-  const gridStart = new Date(monthStart)
-  gridStart.setDate(monthStart.getDate() - offset)
-  const gridEnd = new Date(gridStart)
-  gridEnd.setDate(gridStart.getDate() + 41)
-  const iso = (d: Date) => {
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${y}-${m}-${day}`
-  }
-  return { start: iso(gridStart), end: iso(gridEnd) }
-}
-
 function App() {
   const user = useUserStore((s) => s.user)
   const setUser = useUserStore((s) => s.setUser)
@@ -70,7 +51,7 @@ function App() {
   const [staffColourByLowerName, setStaffColourByLowerName] = useState<
     Record<string, string>
   >({})
-  const [calendarMonth, setCalendarMonth] = useState(() => {
+  const [, setCalendarMonth] = useState(() => {
     const n = new Date()
     return new Date(n.getFullYear(), n.getMonth(), 1)
   })
@@ -310,33 +291,45 @@ function App() {
 
   const effectiveDays = days && days.length ? days : mockDays
 
-  const rosterWindow = useMemo(() => {
-    const list = effectiveDays.map((d) => d.date).sort()
-    if (!list.length) return { start: '', end: '' }
-    return { start: list[0], end: list[list.length - 1] }
-  }, [effectiveDays])
+  /** Broad ±6-month window so we never need to re-fetch when user swipes months. */
+  const broadRosterRange = useMemo(() => {
+    const today = new Date()
+    const start = new Date(today.getFullYear(), today.getMonth() - 6, 1)
+    const end = new Date(today.getFullYear(), today.getMonth() + 7, 0) // last day of +6 month
+    const iso = (d: Date) => {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${day}`
+    }
+    return { start: iso(start), end: iso(end) }
+  }, [])
+
+  const rostersLoadedRef = useRef(false)
 
   useEffect(() => {
     if (!user) return
-    if (!rosterWindow.start || !rosterWindow.end) return
-    const grid = monthGridIsoRange(calendarMonth)
-    const start =
-      rosterWindow.start < grid.start ? rosterWindow.start : grid.start
-    const end = rosterWindow.end > grid.end ? rosterWindow.end : grid.end
-    void loadRosterRange(start, end)
-  }, [user, rosterWindow.start, rosterWindow.end, calendarMonth, loadRosterRange])
+
+    // Initial load (once)
+    if (!rostersLoadedRef.current) {
+      rostersLoadedRef.current = true
+      void loadRosterRange(broadRosterRange.start, broadRosterRange.end)
+    }
+
+    // Re-fetch whenever the user returns to the tab/app
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void loadRosterRange(broadRosterRange.start, broadRosterRange.end)
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [user, broadRosterRange, loadRosterRange])
 
   const reloadAllRosters = () => {
     if (!user) return
-    const grid = monthGridIsoRange(calendarMonth)
-    if (!rosterWindow.start || !rosterWindow.end) {
-      void loadRosterRange(grid.start, grid.end)
-      return
-    }
-    const start =
-      rosterWindow.start < grid.start ? rosterWindow.start : grid.start
-    const end = rosterWindow.end > grid.end ? rosterWindow.end : grid.end
-    void loadRosterRange(start, end)
+    void loadRosterRange(broadRosterRange.start, broadRosterRange.end)
   }
 
   /** Casual workers schedule themselves; admins do not use this control. */

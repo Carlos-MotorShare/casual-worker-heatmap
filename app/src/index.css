@@ -479,6 +479,49 @@ code {
   color: color-mix(in srgb, var(--text-h), var(--text) 15%);
 }
 
+/* Public holiday worker section (admin rostered on non-weekend days) */
+.dayModalPublicHolidayWorkers {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border), transparent 45%);
+}
+
+.dayModalPublicHolidayLabel {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--text-h), var(--text) 18%);
+}
+
+.dayModalPublicHolidayList {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.dayModalPublicHolidayEntry {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dayModalPublicHolidayColour {
+  flex-shrink: 0;
+  width: 6px;
+  height: 14px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border), transparent 40%);
+}
+
+.dayModalPublicHolidayName {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
 .dayModalRosterRemoveBtn {
   flex-shrink: 0;
   width: 22px;

@@ -75,14 +75,29 @@ export default function DayDetailPanel({
   const titleId = useId()
   const [deleteLine, setDeleteLine] = useState<RosterSummaryLineDetail | null>(null)
 
-  const rosterSummaryDetail = useMemo(
-    () => rosterSummaryDetailForDay(rosterRows),
+  const isWeekend = isWeekendIso(day.date)
+
+  /* Admin-rostered users are always shown separately — in the weekend roster
+     section on weekends, or the "Public holiday worker" label on weekdays.
+     They must never appear in the casual workers list or as timeline blocks. */
+  const nonAdminRosterRows = useMemo(
+    () => rosterRows.filter((r) => r.rosterUserIsAdmin !== true),
     [rosterRows],
+  )
+
+  const publicHolidayAdminLines = useMemo(() => {
+    if (isWeekend) return []
+    const adminOnly = rosterRows.filter((r) => r.rosterUserIsAdmin === true)
+    return rosterSummaryDetailForDay(adminOnly)
+  }, [rosterRows, isWeekend])
+
+  const rosterSummaryDetail = useMemo(
+    () => rosterSummaryDetailForDay(nonAdminRosterRows),
+    [nonAdminRosterRows],
   )
 
   const pickupsList = day.pickupsList ?? []
   const dropoffsList = day.dropoffsList ?? []
-  const isWeekend = isWeekendIso(day.date)
 
   const awayEntries = useMemo(() => {
     const iso = day.date
@@ -184,7 +199,7 @@ export default function DayDetailPanel({
             <DayTimeline
               pickupsList={pickupsList}
               dropoffsList={dropoffsList}
-              rosterRows={rosterRows}
+              rosterRows={nonAdminRosterRows}
             />
           </div>
         </div>
@@ -263,6 +278,28 @@ export default function DayDetailPanel({
               </div>
             </div>
           ))}
+        </div>
+      ) : null}
+
+      {/* Public holiday worker(s) — admin users rostered on non-weekend days */}
+      {publicHolidayAdminLines.length > 0 ? (
+        <div className="dayModalPublicHolidayWorkers" aria-label="Public holiday workers">
+          <p className="dayModalPublicHolidayLabel">
+            Public holiday worker{publicHolidayAdminLines.length > 1 ? 's' : ''}:
+          </p>
+          <div className="dayModalPublicHolidayList">
+            {publicHolidayAdminLines.map((l, i) => (
+              <span key={l.userId} className="dayModalPublicHolidayEntry">
+                <span
+                  className="dayModalPublicHolidayColour"
+                  style={{ background: resolveUserColour(l.colour) }}
+                  aria-hidden
+                />
+                <span className="dayModalPublicHolidayName">{l.username}</span>
+                {i < publicHolidayAdminLines.length - 1 ? ', ' : ''}
+              </span>
+            ))}
+          </div>
         </div>
       ) : null}
     </div>
@@ -526,6 +563,27 @@ export default function DayDetailPanel({
                       </div>
                     </div>
                   ))}
+                </div>
+              ) : null}
+              {/* Public holiday worker(s) — no-data expanded variant */}
+              {publicHolidayAdminLines.length > 0 ? (
+                <div className="dayModalPublicHolidayWorkers" aria-label="Public holiday workers">
+                  <p className="dayModalPublicHolidayLabel">
+                    Public holiday worker{publicHolidayAdminLines.length > 1 ? 's' : ''}:
+                  </p>
+                  <div className="dayModalPublicHolidayList">
+                    {publicHolidayAdminLines.map((l, i) => (
+                      <span key={l.userId} className="dayModalPublicHolidayEntry">
+                        <span
+                          className="dayModalPublicHolidayColour"
+                          style={{ background: resolveUserColour(l.colour) }}
+                          aria-hidden
+                        />
+                        <span className="dayModalPublicHolidayName">{l.username}</span>
+                        {i < publicHolidayAdminLines.length - 1 ? ', ' : ''}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               ) : null}
             </>

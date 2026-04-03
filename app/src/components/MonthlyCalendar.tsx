@@ -11,7 +11,6 @@ import DayDetailPanel from './DayDetailPanel'
 import type { RosterRow, User } from '../lib/rosterTypes'
 import type { DirtyCar, StaffingDay } from '../staffingDay'
 import { calculateStaffingPressureScoreRaw } from '../staffingDay'
-import { rosterRowsForHeatmap } from '../lib/rosterHelpers'
 
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1)
@@ -396,7 +395,7 @@ export default function MonthlyCalendar({
     : null
   const sheetDayHasRealData = sheetDayReal !== null && bottomSheetIso !== yesterdayIso
   const sheetDayRosterRows = bottomSheetIso
-    ? rosterRowsForHeatmap(rosterRowsByDate?.[bottomSheetIso] ?? [])
+    ? (rosterRowsByDate?.[bottomSheetIso] ?? [])
     : []
   const canScheduleSheet = Boolean(
     currentUser && currentUser.admin !== true && bottomSheetIso,
@@ -456,9 +455,9 @@ export default function MonthlyCalendar({
           {/* Day number always at top */}
           <span className="monthCalDayNum">{c.date.getDate()}</span>
 
-          {/* Weekend worker name bubbles below date */}
-          {isWeekendCellDate(c.date) && weekendAdmins.length > 0 && c.inMonth ? (
-            <div className="monthCalWeekendBubbles" aria-label="Weekend workers">
+          {/* Worker name bubbles below date (weekends + public holiday admin roster) */}
+          {weekendAdmins.length > 0 && c.inMonth ? (
+            <div className="monthCalWeekendBubbles" aria-label={isWeekendCellDate(c.date) ? 'Weekend workers' : 'Public holiday workers'}>
               {weekendAdmins.map((r) => (
                 <span
                   key={`wb-${c.iso}-${r.userId}`}
