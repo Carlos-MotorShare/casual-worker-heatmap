@@ -178,113 +178,240 @@ function App() {
     }
   }, [user, loadAdminUsers])
 
-  useEffect(() => {
-    const es = new EventSource(`${API_BASE_URL}/api/stream`)
+  // useEffect(() => {
+  //   const es = new EventSource(`${API_BASE_URL}/api/stream`)
 
-    const onConnected = () => setLiveStatus('connected')
+  //   const onConnected = () => setLiveStatus('connected')
 
-    const onData = (e: MessageEvent) => {
-      try {
-        const json: unknown = JSON.parse(String(e.data))
-        if (json && typeof json === 'object') {
-          const maybeGeneratedAt = (json as { generatedAt?: unknown }).generatedAt
-          const maybeDays = (json as { days?: unknown }).days
-          const maybeStaffsAway = (json as { staffsAway?: unknown }).staffsAway
+  //   const onData = (e: MessageEvent) => {
+  //     try {
+  //       const json: unknown = JSON.parse(String(e.data))
+  //       if (json && typeof json === 'object') {
+  //         const maybeGeneratedAt = (json as { generatedAt?: unknown }).generatedAt
+  //         const maybeDays = (json as { days?: unknown }).days
+  //         const maybeStaffsAway = (json as { staffsAway?: unknown }).staffsAway
 
-          // generatedAt received but no longer displayed
-          void maybeGeneratedAt
-          if (Array.isArray(maybeDays) && maybeDays.length > 0) {
-            // Trust server contract; clamp to 14 in component anyway.
-            setDays(maybeDays as StaffingDay[])
-          }
-          const topLevelFiltered = Array.isArray(maybeStaffsAway)
-            ? maybeStaffsAway.filter(
-                (
-                  x,
-                ): x is { staffName: string; startDate: string; endDate: string; reason: string } =>
-                  Boolean(x) &&
-                  typeof x === 'object' &&
-                  typeof (x as { staffName?: unknown }).staffName === 'string' &&
-                  typeof (x as { startDate?: unknown }).startDate === 'string' &&
-                  typeof (x as { endDate?: unknown }).endDate === 'string' &&
-                  typeof (x as { reason?: unknown }).reason === 'string',
-              )
-            : null
+  //         // generatedAt received but no longer displayed
+  //         void maybeGeneratedAt
+  //         if (Array.isArray(maybeDays) && maybeDays.length > 0) {
+  //           // Trust server contract; clamp to 14 in component anyway.
+  //           setDays(maybeDays as StaffingDay[])
+  //         }
+  //         const topLevelFiltered = Array.isArray(maybeStaffsAway)
+  //           ? maybeStaffsAway.filter(
+  //               (
+  //                 x,
+  //               ): x is { staffName: string; startDate: string; endDate: string; reason: string } =>
+  //                 Boolean(x) &&
+  //                 typeof x === 'object' &&
+  //                 typeof (x as { staffName?: unknown }).staffName === 'string' &&
+  //                 typeof (x as { startDate?: unknown }).startDate === 'string' &&
+  //                 typeof (x as { endDate?: unknown }).endDate === 'string' &&
+  //                 typeof (x as { reason?: unknown }).reason === 'string',
+  //             )
+  //           : null
 
-          // If away data is nested inside each day, flatten it for the monthly calendar overlay.
-          const nestedFlattened: Array<{
-            staffName: string
-            startDate: string
-            endDate: string
-            reason: string
-          }> = []
+  //         // If away data is nested inside each day, flatten it for the monthly calendar overlay.
+  //         const nestedFlattened: Array<{
+  //           staffName: string
+  //           startDate: string
+  //           endDate: string
+  //           reason: string
+  //         }> = []
           
-          // Extract dirty cars from first day (if present)
-          let dirtyCarsFromFirstDay: Array<{ vehicleName: string; nextPickupDateTime: string | null }> = []
+  //         // Extract dirty cars from first day (if present)
+  //         let dirtyCarsFromFirstDay: Array<{ vehicleName: string; nextPickupDateTime: string | null }> = []
           
-          if (Array.isArray(maybeDays)) {
-            for (const d of maybeDays) {
-              if (!d || typeof d !== 'object') continue
-              const o = d as Record<string, unknown>
-              const arr = (o.staffsAway ?? o.staffs_away ?? o.staffsData ?? o.staffs_data) as unknown
-              if (!Array.isArray(arr)) continue
-              for (const x of arr) {
-                if (!x || typeof x !== 'object') continue
-                const xa = x as Record<string, unknown>
-                const staffName = typeof xa.staffName === 'string' ? xa.staffName : ''
-                const startDate = typeof xa.startDate === 'string' ? xa.startDate : ''
-                const endDate = typeof xa.endDate === 'string' ? xa.endDate : ''
-                const reason = typeof xa.reason === 'string' ? xa.reason : ''
-                if (!staffName || !startDate || !endDate) continue
-                nestedFlattened.push({ staffName, startDate, endDate, reason })
-              }
-            }
+  //         if (Array.isArray(maybeDays)) {
+  //           for (const d of maybeDays) {
+  //             if (!d || typeof d !== 'object') continue
+  //             const o = d as Record<string, unknown>
+  //             const arr = (o.staffsAway ?? o.staffs_away ?? o.staffsData ?? o.staffs_data) as unknown
+  //             if (!Array.isArray(arr)) continue
+  //             for (const x of arr) {
+  //               if (!x || typeof x !== 'object') continue
+  //               const xa = x as Record<string, unknown>
+  //               const staffName = typeof xa.staffName === 'string' ? xa.staffName : ''
+  //               const startDate = typeof xa.startDate === 'string' ? xa.startDate : ''
+  //               const endDate = typeof xa.endDate === 'string' ? xa.endDate : ''
+  //               const reason = typeof xa.reason === 'string' ? xa.reason : ''
+  //               if (!staffName || !startDate || !endDate) continue
+  //               nestedFlattened.push({ staffName, startDate, endDate, reason })
+  //             }
+  //           }
             
-            // Extract dirty cars from the first day
-            const firstDay = maybeDays[0]
-            if (firstDay && typeof firstDay === 'object') {
-              const firstDayObj = firstDay as Record<string, unknown>
-              const dirtyCarsRaw = (firstDayObj.dirtyCars ?? firstDayObj.dirty_cars) as unknown
-              if (Array.isArray(dirtyCarsRaw)) {
-                dirtyCarsFromFirstDay = dirtyCarsRaw.filter(
+  //           // Extract dirty cars from the first day
+  //           const firstDay = maybeDays[0]
+  //           if (firstDay && typeof firstDay === 'object') {
+  //             const firstDayObj = firstDay as Record<string, unknown>
+  //             const dirtyCarsRaw = (firstDayObj.dirtyCars ?? firstDayObj.dirty_cars) as unknown
+  //             if (Array.isArray(dirtyCarsRaw)) {
+  //               dirtyCarsFromFirstDay = dirtyCarsRaw.filter(
+  //                 (x): x is { vehicleName: string; nextPickupDateTime: string | null } =>
+  //                   Boolean(x) &&
+  //                   typeof x === 'object' &&
+  //                   (typeof (x as { vehicleName?: unknown }).vehicleName === 'string' ||
+  //                     typeof (x as { vehicle_name?: unknown }).vehicle_name === 'string'),
+  //               ).map((x) => {
+  //                 const xo = x as Record<string, unknown>
+  //                 return {
+  //                   vehicleName: typeof xo.vehicleName === 'string' ? xo.vehicleName : String(xo.vehicle_name ?? ''),
+  //                   nextPickupDateTime: typeof xo.nextPickupDateTime === 'string' ? xo.nextPickupDateTime : (typeof xo.next_pickup_date_time === 'string' ? xo.next_pickup_date_time : null),
+  //                 }
+  //               })
+  //             }
+  //           }
+  //         }
+
+  //         const chosen = topLevelFiltered && topLevelFiltered.length > 0 ? topLevelFiltered : nestedFlattened
+  //         setStaffsAway(chosen)
+  //         setDirtyCars(dirtyCarsFromFirstDay)
+  //       }
+  //     } catch {
+  //       // ignore malformed events
+  //     }
+  //   }
+
+  //   es.addEventListener('connected', onConnected)
+  //   es.addEventListener('data', onData)
+  //   es.onerror = () => {
+  //     setLiveStatus('error')
+  //     // EventSource will auto-reconnect; we keep showing last known (or mock) data.
+  //   }
+
+  //   return () => {
+  //     es.removeEventListener('connected', onConnected)
+  //     es.removeEventListener('data', onData)
+  //     es.close()
+  //   }
+  // }, [])
+
+  useEffect(() => {
+  let isMounted = true;
+
+  const fetchData = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/data`);
+      const json: unknown = await res.json();
+
+      if (!isMounted) return;
+
+      if (json && typeof json === 'object') {
+        const maybeGeneratedAt = (json as { generatedAt?: unknown }).generatedAt;
+        const maybeDays = (json as { days?: unknown }).days;
+        const maybeStaffsAway = (json as { staffsAway?: unknown }).staffsAway;
+
+        // generatedAt received but no longer displayed
+        void maybeGeneratedAt;
+
+        if (Array.isArray(maybeDays) && maybeDays.length > 0) {
+          setDays(maybeDays as StaffingDay[]);
+        }
+
+        const topLevelFiltered = Array.isArray(maybeStaffsAway)
+          ? maybeStaffsAway.filter(
+              (
+                x,
+              ): x is { staffName: string; startDate: string; endDate: string; reason: string } =>
+                Boolean(x) &&
+                typeof x === 'object' &&
+                typeof (x as { staffName?: unknown }).staffName === 'string' &&
+                typeof (x as { startDate?: unknown }).startDate === 'string' &&
+                typeof (x as { endDate?: unknown }).endDate === 'string' &&
+                typeof (x as { reason?: unknown }).reason === 'string',
+            )
+          : null;
+
+        const nestedFlattened: Array<{
+          staffName: string;
+          startDate: string;
+          endDate: string;
+          reason: string;
+        }> = [];
+
+        let dirtyCarsFromFirstDay: Array<{
+          vehicleName: string;
+          nextPickupDateTime: string | null;
+        }> = [];
+
+        if (Array.isArray(maybeDays)) {
+          for (const d of maybeDays) {
+            if (!d || typeof d !== 'object') continue;
+            const o = d as Record<string, unknown>;
+            const arr = (o.staffsAway ?? o.staffs_away ?? o.staffsData ?? o.staffs_data) as unknown;
+            if (!Array.isArray(arr)) continue;
+
+            for (const x of arr) {
+              if (!x || typeof x !== 'object') continue;
+              const xa = x as Record<string, unknown>;
+              const staffName = typeof xa.staffName === 'string' ? xa.staffName : '';
+              const startDate = typeof xa.startDate === 'string' ? xa.startDate : '';
+              const endDate = typeof xa.endDate === 'string' ? xa.endDate : '';
+              const reason = typeof xa.reason === 'string' ? xa.reason : '';
+              if (!staffName || !startDate || !endDate) continue;
+              nestedFlattened.push({ staffName, startDate, endDate, reason });
+            }
+          }
+
+          const firstDay = maybeDays[0];
+          if (firstDay && typeof firstDay === 'object') {
+            const firstDayObj = firstDay as Record<string, unknown>;
+            const dirtyCarsRaw = (firstDayObj.dirtyCars ?? firstDayObj.dirty_cars) as unknown;
+
+            if (Array.isArray(dirtyCarsRaw)) {
+              dirtyCarsFromFirstDay = dirtyCarsRaw
+                .filter(
                   (x): x is { vehicleName: string; nextPickupDateTime: string | null } =>
                     Boolean(x) &&
                     typeof x === 'object' &&
                     (typeof (x as { vehicleName?: unknown }).vehicleName === 'string' ||
                       typeof (x as { vehicle_name?: unknown }).vehicle_name === 'string'),
-                ).map((x) => {
-                  const xo = x as Record<string, unknown>
+                )
+                .map((x) => {
+                  const xo = x as Record<string, unknown>;
                   return {
-                    vehicleName: typeof xo.vehicleName === 'string' ? xo.vehicleName : String(xo.vehicle_name ?? ''),
-                    nextPickupDateTime: typeof xo.nextPickupDateTime === 'string' ? xo.nextPickupDateTime : (typeof xo.next_pickup_date_time === 'string' ? xo.next_pickup_date_time : null),
-                  }
-                })
-              }
+                    vehicleName:
+                      typeof xo.vehicleName === 'string'
+                        ? xo.vehicleName
+                        : String(xo.vehicle_name ?? ''),
+                    nextPickupDateTime:
+                      typeof xo.nextPickupDateTime === 'string'
+                        ? xo.nextPickupDateTime
+                        : typeof xo.next_pickup_date_time === 'string'
+                        ? xo.next_pickup_date_time
+                        : null,
+                  };
+                });
             }
           }
-
-          const chosen = topLevelFiltered && topLevelFiltered.length > 0 ? topLevelFiltered : nestedFlattened
-          setStaffsAway(chosen)
-          setDirtyCars(dirtyCarsFromFirstDay)
         }
-      } catch {
-        // ignore malformed events
+
+        const chosen =
+          topLevelFiltered && topLevelFiltered.length > 0
+            ? topLevelFiltered
+            : nestedFlattened;
+
+        setStaffsAway(chosen);
+        setDirtyCars(dirtyCarsFromFirstDay);
+        setLiveStatus('connected');
       }
+    } catch (err) {
+      console.error(err);
+      if (isMounted) setLiveStatus('error');
     }
+  };
 
-    es.addEventListener('connected', onConnected)
-    es.addEventListener('data', onData)
-    es.onerror = () => {
-      setLiveStatus('error')
-      // EventSource will auto-reconnect; we keep showing last known (or mock) data.
-    }
+  // Initial fetch
+  fetchData();
 
-    return () => {
-      es.removeEventListener('connected', onConnected)
-      es.removeEventListener('data', onData)
-      es.close()
-    }
-  }, [])
+  // Poll every 60 seconds (adjust as needed)
+  const interval = setInterval(fetchData, 60_000);
+
+  return () => {
+    isMounted = false;
+    clearInterval(interval);
+  };
+}, []);
 
   /** Blur + spinner until connected and at least 1s on screen (no sub-second flash). */
   const showMainLoader = !(liveStatus === 'connected' && minMainLoadDone) && !forceEnableAfterTimeout

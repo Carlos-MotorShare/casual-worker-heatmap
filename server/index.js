@@ -24,22 +24,22 @@ if (!supabaseUrl || !supabaseAnonKey) {
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /** @type {Set<import("express").Response>} */
-const sseClients = new Set();
+// const sseClients = new Set();
 
 function sseSend(res, event, data) {
   if (event) res.write(`event: ${event}\n`);
   res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-function broadcast(event, data) {
-  for (const res of sseClients) {
-    try {
-      sseSend(res, event, data);
-    } catch {
-      sseClients.delete(res);
-    }
-  }
-}
+// function broadcast(event, data) {
+//   for (const res of sseClients) {
+//     try {
+//       sseSend(res, event, data);
+//     } catch {
+//       sseClients.delete(res);
+//     }
+//   }
+// }
 
 /**
  * One day row as stored in `staffing_data.days` (JSONB) and sent to the client.
@@ -468,7 +468,7 @@ app.post("/api/airtable", async (req, res) => {
     console.log(
       `[airtable] data saved to Supabase id=${inserted.id} generatedAt=${payload.generatedAt} days=${payload.days.length}`
     );
-    broadcast("data", clientPayload);
+    //broadcast("data", clientPayload);
     return res.status(200).json({ ok: true });
   } catch (error) {
     console.error("[airtable] unexpected error while saving payload:", error);
@@ -842,38 +842,44 @@ app.post('/api/webhooks/airtable/vehicle-cleaned', async (req, res) => {
   }
 })
 
-app.get("/api/stream", async (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no");
+// app.get("/api/stream", async (req, res) => {
+//   res.setHeader("Content-Type", "text/event-stream");
+//   res.setHeader("Cache-Control", "no-cache");
+//   res.setHeader("Connection", "keep-alive");
+//   res.setHeader("X-Accel-Buffering", "no");
 
-  // Send an initial event so clients know they’re connected.
-  sseSend(res, "connected", { ok: true });
-  try {
-    const { data, error } = await supabase
-      .from("staffing_data")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+//   // Send an initial event so clients know they’re connected.
+//   sseSend(res, "connected", { ok: true });
+//   try {
+//     const { data, error } = await supabase
+//       .from("staffing_data")
+//       .select("*")
+//       .order("created_at", { ascending: false })
+//       .limit(1)
+//       .maybeSingle();
 
-    if (error) {
-      console.error("[stream] failed to fetch latest payload for new client:", error);
-    } else if (data) {
-      sseSend(res, "data", rowToClientPayload(data));
-    }
-  } catch (error) {
-    console.error("[stream] unexpected error while fetching latest payload for new client:", error);
-  }
+//     if (error) {
+//       console.error("[stream] failed to fetch latest payload for new client:", error);
+//     } else if (data) {
+//       sseSend(res, "data", rowToClientPayload(data));
+//     }
+//   } catch (error) {
+//     console.error("[stream] unexpected error while fetching latest payload for new client:", error);
+//   }
 
-  // Flush headers immediately (helps some proxies/browsers).
-  res.flushHeaders?.();
+//   // Flush headers immediately (helps some proxies/browsers).
+//   res.flushHeaders?.();
 
-  sseClients.add(res);
+//   sseClients.add(res);
 
-  req.on("close", () => {
-    sseClients.delete(res);
+//   req.on("close", () => {
+//     sseClients.delete(res);
+//   });
+// });
+
+app.get("/api/stream", (_req, res) => {
+  return res.status(410).json({
+    error: "SSE endpoint deprecated. Use /api/data instead.",
   });
 });
 
