@@ -408,8 +408,8 @@ export default function MonthlyCalendar({
     const casualRosters = uniqueNonAdminRosterRows(rosterRowsByDate?.[c.iso])
     const dayData = dayByIso[c.iso]
     const heatScore = heatmapScoreByIso[c.iso]
-    const showHeatmap = isAdmin && heatmapEnabled && heatScore !== undefined && c.inMonth
-    const isExpanded = c.iso === bottomSheetIso
+    const showHeatmap = isAdmin && heatmapEnabled && heatScore !== undefined
+    const isExpanded = c.inMonth && c.iso === bottomSheetIso
 
     return (
       <div
@@ -423,16 +423,17 @@ export default function MonthlyCalendar({
           .filter(Boolean)
           .join(' ')}
         role="gridcell"
-        tabIndex={0}
+        tabIndex={c.inMonth ? 0 : -1}
         aria-label={c.iso}
+        aria-disabled={c.inMonth ? undefined : true}
         data-monthcal-iso={c.iso}
-        onKeyDown={(e) => {
+        onKeyDown={c.inMonth ? (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             handleCellTap(c)
           }
-        }}
-        onPointerUp={(e) => {
+        } : undefined}
+        onPointerUp={c.inMonth ? (e) => {
           if (e.button !== 0) return
           const s = dragRef.current
           if (s.active && s.pointerId !== e.pointerId) return
@@ -444,7 +445,7 @@ export default function MonthlyCalendar({
           e.preventDefault()
 
           handleCellTap(c)
-        }}
+        } : undefined}
       >
         {/* Heatmap background for admin */}
         {showHeatmap ? (
@@ -456,7 +457,7 @@ export default function MonthlyCalendar({
           <span className="monthCalDayNum">{c.date.getDate()}</span>
 
           {/* Worker name bubbles below date (weekends + public holiday admin roster) */}
-          {weekendAdmins.length > 0 && c.inMonth ? (
+          {weekendAdmins.length > 0 ? (
             <div className="monthCalWeekendBubbles" aria-label={isWeekendCellDate(c.date) ? 'Weekend workers' : 'Public holiday workers'}>
               {weekendAdmins.map((r) => (
                 <span
@@ -478,7 +479,7 @@ export default function MonthlyCalendar({
           ) : null}
 
           {/* Non-admin (casual) self-roster bubbles — visible only for non-admin users */}
-          {!isAdmin && casualRosters.length > 0 && c.inMonth ? (
+          {!isAdmin && casualRosters.length > 0 ? (
             <div className="monthCalWeekendBubbles" aria-label="Rostered workers">
               {casualRosters.map((r) => (
                 <span
@@ -500,14 +501,14 @@ export default function MonthlyCalendar({
           ) : null}
 
           {/* Cars to wash (visible for all users when data exists, hidden for yesterday) */}
-          {dayData && c.inMonth && c.iso !== yesterdayIso ? (
+          {dayData && c.iso !== yesterdayIso ? (
             <span className="monthCalCarsCount" aria-label={`${dayData.carsToWash} cars to wash`}>
               🧼 {dayData.carsToWash}
             </span>
           ) : null}
 
           {/* Admin-only: casual worker roster indicator 🤝 +N (below soap) */}
-          {isAdmin && casualRosters.length > 0 && c.inMonth ? (
+          {isAdmin && casualRosters.length > 0 ? (
             <span className="monthCalCasualIndicator" aria-label={`${casualRosters.length} casual worker${casualRosters.length > 1 ? 's' : ''} rostered`}>
               🤝 +{casualRosters.length}
             </span>

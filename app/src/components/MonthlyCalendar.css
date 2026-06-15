@@ -285,6 +285,11 @@
   line-height: 1.2;
 }
 
+.monthCalCell--out {
+  cursor: default;
+  pointer-events: none;
+}
+
 .monthCalCell--out .monthCalDayNum {
   opacity: 0.32;
 }
