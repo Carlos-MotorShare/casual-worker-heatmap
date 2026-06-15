@@ -10,7 +10,7 @@ import './MonthlyCalendar.css'
 import DayDetailPanel from './DayDetailPanel'
 import type { RosterRow, User } from '../lib/rosterTypes'
 import type { DirtyCar, StaffingDay } from '../staffingDay'
-import { calculateStaffingPressureScoreRaw } from '../staffingDay'
+import { calculateHeatmapScoreRaw, type HeatmapMetric } from '../staffingDay'
 
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1)
@@ -221,6 +221,7 @@ export default function MonthlyCalendar({
   const [bottomSheetIso, setBottomSheetIso] = useState<string | null>(null)
   const [bottomSheetEntered, setBottomSheetEntered] = useState(false)
   const [heatmapEnabled, setHeatmapEnabled] = useState(true)
+  const [heatmapMetric, setHeatmapMetric] = useState<HeatmapMetric>('carsToWash')
   const [legendOpen, setLegendOpen] = useState(false)
   const [legendEntered, setLegendEntered] = useState(false)
   const dragRef = useRef<{
@@ -300,7 +301,7 @@ export default function MonthlyCalendar({
     // If days[0] is today, include it; otherwise skip it (it's a stale "yesterday" row)
     const scored = days[0]?.date === todayIso ? days : days.slice(1)
     if (scored.length === 0) return {} as Record<string, number>
-    const raws = scored.map((d) => calculateStaffingPressureScoreRaw(d))
+    const raws = scored.map((d) => calculateHeatmapScoreRaw(d, heatmapMetric))
     const minRaw = Math.min(...raws)
     const maxRaw = Math.max(...raws)
     const denom = maxRaw - minRaw
@@ -310,7 +311,7 @@ export default function MonthlyCalendar({
       out[d.date] = denom <= 0 ? 0 : Math.round(clamp(((raw - minRaw) / denom) * 100, 0, 100))
     })
     return out
-  }, [days, todayIso])
+  }, [days, todayIso, heatmapMetric])
 
   const currentAwayByIso = useMemo(() => {
     const start = currentCells[0]?.date ? new Date(currentCells[0].date) : startOfMonth(month)
@@ -500,11 +501,18 @@ export default function MonthlyCalendar({
             </div>
           ) : null}
 
-          {/* Cars to wash (visible for all users when data exists, hidden for yesterday) */}
+          {/* Day workload count (cars or pickups for admin when toggled) */}
           {dayData && c.iso !== yesterdayIso ? (
-            <span className="monthCalCarsCount" aria-label={`${dayData.carsToWash} cars to wash`}>
-              🧼 {dayData.carsToWash}
-            </span>
+            isAdmin && heatmapMetric === 'pickups' ? (
+              <span className="monthCalPickupsCount" aria-label={`${dayData.pickups} pickups`}>
+                <span className="monthCalPickupDot" aria-hidden="true" />
+                {dayData.pickups}
+              </span>
+            ) : (
+              <span className="monthCalCarsCount" aria-label={`${dayData.carsToWash} cars to wash`}>
+                🧼 {dayData.carsToWash}
+              </span>
+            )
           ) : null}
 
           {/* Admin-only: casual worker roster indicator 🤝 +N (below soap) */}
@@ -700,6 +708,44 @@ export default function MonthlyCalendar({
           ) : null}
         </div>
       </div>
+
+      {isAdmin ? (
+        <div
+          className="monthCalHeatMetricToggle"
+          role="group"
+          aria-label="Heatmap based on"
+        >
+          <span className="monthCalHeatMetricLabel">Heatmap based on</span>
+          <div className="monthCalHeatMetricOptions">
+            <button
+              type="button"
+              className={[
+                'monthCalHeatMetricBtn',
+                heatmapMetric === 'carsToWash' ? 'monthCalHeatMetricBtn--active' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              aria-pressed={heatmapMetric === 'carsToWash'}
+              onClick={() => setHeatmapMetric('carsToWash')}
+            >
+              Cars to wash
+            </button>
+            <button
+              type="button"
+              className={[
+                'monthCalHeatMetricBtn',
+                heatmapMetric === 'pickups' ? 'monthCalHeatMetricBtn--active' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              aria-pressed={heatmapMetric === 'pickups'}
+              onClick={() => setHeatmapMetric('pickups')}
+            >
+              Number of pickups
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* ── Unified bottom sheet day panel (replaces old expanded panel + weekend modal) ── */}
       {bottomSheetIso

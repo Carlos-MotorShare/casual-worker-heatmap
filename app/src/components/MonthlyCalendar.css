@@ -115,6 +115,62 @@
   border: 1px solid color-mix(in srgb, var(--bg-900), transparent 78%);
 }
 
+/* ── Heatmap metric toggle (admin only, below calendar) ── */
+
+.monthCalHeatMetricToggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.monthCalHeatMetricLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.monthCalHeatMetricOptions {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 30%);
+  background: color-mix(in srgb, var(--white), transparent 94%);
+  overflow: hidden;
+}
+
+.monthCalHeatMetricBtn {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.monthCalHeatMetricBtn + .monthCalHeatMetricBtn {
+  border-left: 1px solid color-mix(in srgb, var(--border), transparent 30%);
+}
+
+.monthCalHeatMetricBtn:hover {
+  background: color-mix(in srgb, var(--white), transparent 90%);
+}
+
+.monthCalHeatMetricBtn--active {
+  background: color-mix(in srgb, var(--accent), transparent 82%);
+  color: var(--text-h);
+}
+
+.monthCalHeatMetricBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
 /* ── Weekday header ── */
 
 .monthCalWeekdays {
@@ -304,6 +360,28 @@
   color: var(--text-h);
   opacity: 0.8;
   white-space: nowrap;
+}
+
+.monthCalPickupsCount {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-h);
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+.monthCalPickupDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--highlight-teal), #6ee7b7 15%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--highlight-teal), transparent 50%);
 }
 
 /* ── Casual worker roster indicator (admin view) ── */
@@ -695,6 +773,16 @@
 
   .monthCalCarsCount {
     font-size: 14px;
+  }
+
+  .monthCalPickupsCount {
+    font-size: 14px;
+    gap: 4px;
+  }
+
+  .monthCalPickupDot {
+    width: 8px;
+    height: 8px;
   }
 
   .monthCalCasualIndicator {
