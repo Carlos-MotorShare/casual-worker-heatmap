@@ -418,6 +418,16 @@ code {
   color: var(--text-h);
 }
 
+.dayModalSideStatExtraHands {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--border), transparent 40%);
+}
+
+.dayModalExtraHandsValue--needed {
+  color: #f59e0b;
+}
+
 @media (max-width: 340px) {
   .dayModalChartWithStats {
     flex-direction: column;

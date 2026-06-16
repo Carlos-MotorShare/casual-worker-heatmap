@@ -400,6 +400,73 @@ export function rosterSummaryDetailForDay(rows: RosterRow[]): RosterSummaryLineD
   return out.sort((a, b) => a.username.localeCompare(b.username))
 }
 
+export type ExtraHandsSlot = 'No' | 'Morning' | 'Afternoon' | 'Evening'
+
+const EXTRA_HANDS_SLOTS: Array<{ name: Exclude<ExtraHandsSlot, 'No'>; min: number; max: number }> = [
+  { name: 'Morning', min: 8, max: 12 },
+  { name: 'Afternoon', min: 12, max: 17 },
+  { name: 'Evening', min: 17, max: 21 },
+]
+
+/**
+ * Determines whether extra hands are needed and, if so, which time slot.
+ *
+ * Intensity: 3+ pickups in the same hour, or 2+ dropoffs coinciding with 1+ pickups.
+ * Range: pickups span all three time windows (morning, afternoon, evening).
+ *
+ * Returns the earliest slot where extra hands are needed, or 'No'.
+ */
+export function computeExtraHandsRequired(
+  pickupsList: Array<{ time: string }>,
+  dropoffsList: Array<{ time: string }>,
+): ExtraHandsSlot {
+  const getHour = (t: string) => parseInt(t.split(':')[0], 10)
+
+  const pickupsByHour = new Map<number, number>()
+  for (const p of pickupsList) {
+    const h = getHour(p.time)
+    if (Number.isFinite(h)) pickupsByHour.set(h, (pickupsByHour.get(h) ?? 0) + 1)
+  }
+
+  const dropoffsByHour = new Map<number, number>()
+  for (const d of dropoffsList) {
+    const h = getHour(d.time)
+    if (Number.isFinite(h)) dropoffsByHour.set(h, (dropoffsByHour.get(h) ?? 0) + 1)
+  }
+
+  const neededSlots = new Set<Exclude<ExtraHandsSlot, 'No'>>()
+
+  // Intensity: 3+ pickups in the same hour
+  for (const [h, count] of pickupsByHour) {
+    if (count >= 3) {
+      const slot = EXTRA_HANDS_SLOTS.find((s) => h >= s.min && h < s.max)
+      if (slot) neededSlots.add(slot.name)
+    }
+  }
+
+  // Intensity: 2+ dropoffs at the same hour as 1+ pickups
+  for (const [h, dCount] of dropoffsByHour) {
+    if (dCount >= 2 && (pickupsByHour.get(h) ?? 0) >= 1) {
+      const slot = EXTRA_HANDS_SLOTS.find((s) => h >= s.min && h < s.max)
+      if (slot) neededSlots.add(slot.name)
+    }
+  }
+
+  // Range: pickups across all three windows → flag all three (returns earliest)
+  const coveredSlots = EXTRA_HANDS_SLOTS.filter((s) =>
+    [...pickupsByHour.entries()].some(([h, c]) => c > 0 && h >= s.min && h < s.max),
+  )
+  if (coveredSlots.length === 3) {
+    for (const s of EXTRA_HANDS_SLOTS) neededSlots.add(s.name)
+  }
+
+  if (neededSlots.size === 0) return 'No'
+  for (const slot of EXTRA_HANDS_SLOTS) {
+    if (neededSlots.has(slot.name)) return slot.name
+  }
+  return 'No'
+}
+
 export function canActorRemoveRosterLine(
   line: RosterSummaryLineDetail,
   user: User | null,
