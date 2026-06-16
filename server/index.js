@@ -2,6 +2,15 @@ import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import "dotenv/config"; // loads .env into process.env
+import cron from "node-cron";
+import {
+  sendSlackNotification,
+  slackMention,
+  headerBlock,
+  sectionBlock,
+  contextBlock,
+  dividerBlock,
+} from "./slack.js";
 
 const app = express();
 
@@ -882,6 +891,286 @@ app.get("/api/stream", (_req, res) => {
     error: "SSE endpoint deprecated. Use /api/data instead.",
   });
 });
+
+// ── Weekend roster Slack notifications ──────────────────────────────────────
+
+const NZ_TZ = "Pacific/Auckland";
+
+/**
+ * Returns the next Saturday and Sunday ISO dates relative to a Friday in NZ time.
+ * @param {Date} fridayNz - a Date whose local time is already in NZ context
+ * @returns {{ satIso: string, sunIso: string }}
+ */
+function nextWeekendDates(fridayNz) {
+  const toIso = (/** @type {Date} */ d) => d.toISOString().slice(0, 10);
+  const sat = new Date(Date.UTC(fridayNz.getFullYear(), fridayNz.getMonth(), fridayNz.getDate() + 1));
+  const sun = new Date(Date.UTC(fridayNz.getFullYear(), fridayNz.getMonth(), fridayNz.getDate() + 2));
+  return { satIso: toIso(sat), sunIso: toIso(sun) };
+}
+
+/**
+ * Fetch staffing data for specific dates from the latest Supabase snapshot.
+ * @param {string[]} dates - YYYY-MM-DD
+ * @returns {Promise<Map<string, import('./index.js').StaffingDayEntry>>}
+ */
+async function fetchStaffingDays(dates) {
+  const { data, error } = await supabase
+    .from("staffing_data")
+    .select("days")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return new Map();
+
+  const all = Array.isArray(data.days) ? data.days.map((d) => normalizeDay(d)) : [];
+  const dateSet = new Set(dates);
+  return new Map(all.filter((d) => dateSet.has(d.date)).map((d) => [d.date, d]));
+}
+
+/**
+ * Fetch roster rows for a date range.
+ * @param {string} start
+ * @param {string} end
+ */
+async function fetchRostersForDates(start, end) {
+  const { data, error } = await supabase.rpc("rosters_for_range", {
+    payload: { start, end },
+  });
+  if (error || !Array.isArray(data)) return [];
+  return data.map((r) => ({
+    userId: r.user_id,
+    date: normalizePgDateString(r.roster_date),
+    username: r.username,
+    startTime: normalizePgTimeString(r.start_time),
+    endTime: normalizePgTimeString(r.end_time),
+    isAdmin: r.roster_user_admin === true,
+  }));
+}
+
+const EXTRA_HANDS_SLOTS = [
+  { name: "Morning", min: 8, max: 12 },
+  { name: "Afternoon", min: 12, max: 17 },
+  { name: "Evening", min: 17, max: 21 },
+];
+
+/**
+ * JS port of the frontend computeExtraHandsRequired.
+ * Returns null for no extra hands needed, or { slot, reason } when needed.
+ * @param {Array<{time: string}>} pickupsList
+ * @param {Array<{time: string}>} dropoffsList
+ * @returns {{ slot: string, reason: string } | null}
+ */
+function computeExtraHandsRequired(pickupsList, dropoffsList) {
+  const getHour = (t) => parseInt(t.split(":")[0], 10);
+
+  const pickupsByHour = new Map();
+  for (const p of pickupsList) {
+    const h = getHour(p.time);
+    if (Number.isFinite(h)) pickupsByHour.set(h, (pickupsByHour.get(h) ?? 0) + 1);
+  }
+
+  const dropoffsByHour = new Map();
+  for (const d of dropoffsList) {
+    const h = getHour(d.time);
+    if (Number.isFinite(h)) dropoffsByHour.set(h, (dropoffsByHour.get(h) ?? 0) + 1);
+  }
+
+  const needed = new Map(); // slot name → reason string
+
+  for (const [h, count] of pickupsByHour) {
+    if (count >= 3) {
+      const slot = EXTRA_HANDS_SLOTS.find((s) => h >= s.min && h < s.max);
+      if (slot && !needed.has(slot.name)) {
+        needed.set(slot.name, `${count} pickups in the same hour`);
+      }
+    }
+  }
+
+  for (const [h, dCount] of dropoffsByHour) {
+    const pCount = pickupsByHour.get(h) ?? 0;
+    if (dCount >= 2 && pCount >= 1) {
+      const slot = EXTRA_HANDS_SLOTS.find((s) => h >= s.min && h < s.max);
+      if (slot && !needed.has(slot.name)) {
+        needed.set(slot.name, `${dCount} dropoffs overlapping with ${pCount} pickup${pCount > 1 ? "s" : ""}`);
+      }
+    }
+  }
+
+  // Range: pickups across all three windows
+  const coveredSlots = EXTRA_HANDS_SLOTS.filter((s) =>
+    [...pickupsByHour.entries()].some(([h, c]) => c > 0 && h >= s.min && h < s.max),
+  );
+  if (coveredSlots.length === 3) {
+    for (const s of EXTRA_HANDS_SLOTS) {
+      if (!needed.has(s.name)) needed.set(s.name, "pickups span the full day");
+    }
+  }
+
+  if (needed.size === 0) return null;
+
+  for (const slot of EXTRA_HANDS_SLOTS) {
+    if (needed.has(slot.name)) return { slot: slot.name, reason: needed.get(slot.name) };
+  }
+  return null;
+}
+
+/**
+ * Build a one-line plain-English brief for a day's workload.
+ * @param {{ pickups: number, dropoffs: number, carsToWash: number }} day
+ */
+function buildDayBrief(day) {
+  const parts = [];
+  if (day.pickups > 0) parts.push(`${day.pickups} pickup${day.pickups > 1 ? "s" : ""}`);
+  if (day.dropoffs > 0) parts.push(`${day.dropoffs} dropoff${day.dropoffs > 1 ? "s" : ""}`);
+  if (day.carsToWash > 0) parts.push(`${day.carsToWash} car${day.carsToWash > 1 ? "s" : ""} to wash`);
+  if (parts.length === 0) return "Quiet day — no scheduled pickups or dropoffs.";
+
+  let brief = parts.join(", ");
+  if (day.carsToWash >= 5) brief += " — plenty of washing ahead";
+  else if (day.pickups >= 5) brief += " — busy pickup day";
+  else if (day.pickups === 0 && day.carsToWash > 0) brief += " — washing only";
+  return brief;
+}
+
+/** @param {string} iso */
+function formatDayLabel(iso) {
+  const d = new Date(`${iso}T12:00:00Z`);
+  return d.toLocaleDateString("en-NZ", { weekday: "long", day: "numeric", month: "short", timeZone: "UTC" });
+}
+
+/** Format HH:MM:SS → "8am" style */
+function formatTime(t) {
+  const h = parseInt(t.split(":")[0], 10);
+  return h === 0 ? "12am" : h < 12 ? `${h}am` : h === 12 ? "12pm" : `${h - 12}pm`;
+}
+
+async function runWeekendRosterNotification() {
+  console.log("[cron] Running weekend roster notification...");
+
+  // Derive next Saturday/Sunday from current NZ date
+  const nzDateStr = new Date().toLocaleDateString("en-CA", { timeZone: NZ_TZ }); // YYYY-MM-DD
+  const [y, m, d] = nzDateStr.split("-").map(Number);
+  const fridayNz = new Date(Date.UTC(y, m - 1, d));
+  const { satIso, sunIso } = nextWeekendDates(fridayNz);
+
+  const [staffingDays, rosterRows] = await Promise.all([
+    fetchStaffingDays([satIso, sunIso]),
+    fetchRostersForDates(satIso, sunIso),
+  ]);
+
+  const rosterBySat = rosterRows.filter((r) => r.date === satIso && r.isAdmin);
+  const rosterBySun = rosterRows.filter((r) => r.date === sunIso && r.isAdmin);
+  const satWorkers = [...new Map(rosterBySat.map((r) => [r.userId, r])).values()];
+  const sunWorkers = [...new Map(rosterBySun.map((r) => [r.userId, r])).values()];
+
+  const satDay = staffingDays.get(satIso);
+  const sunDay = staffingDays.get(sunIso);
+
+  const satLabel = formatDayLabel(satIso);
+  const sunLabel = formatDayLabel(sunIso);
+
+  // ── AUTO notification ──────────────────────────────────────────────────────
+
+  const noOneSat = satWorkers.length === 0;
+  const noOneSun = sunWorkers.length === 0;
+
+  if (noOneSat && noOneSun) {
+    await sendSlackNotification("auto", {
+      text: `⚠️ No one is rostered for this weekend (${satLabel} & ${sunLabel}).`,
+      blocks: [
+        headerBlock("⚠️ Weekend Roster Warning"),
+        sectionBlock(`No workers have been assigned for the upcoming weekend.\n\n*${satLabel}* — unassigned\n*${sunLabel}* — unassigned`),
+        dividerBlock,
+        contextBlock(["Please assign workers as soon as possible."]),
+      ],
+    });
+  } else {
+    const buildDaySummary = (label, workers, day) => {
+      const workerList = workers.length > 0
+        ? workers.map((w) => `• ${slackMention(w.username)} (${formatTime(w.startTime)}–${formatTime(w.endTime)})`).join("\n")
+        : "_No one assigned_";
+      const brief = day ? buildDayBrief(day) : "No staffing data available.";
+      return `*${label}*\n${workerList}\n_${brief}_`;
+    };
+
+    const satSummary = buildDaySummary(satLabel, satWorkers, satDay);
+    const sunSummary = buildDaySummary(sunLabel, sunWorkers, sunDay);
+
+    const warningLines = [];
+    if (noOneSat) warningLines.push(`⚠️ No one assigned for ${satLabel}`);
+    if (noOneSun) warningLines.push(`⚠️ No one assigned for ${sunLabel}`);
+
+    const blocks = [
+      headerBlock("📅 Weekend Roster Summary"),
+      sectionBlock(satSummary),
+      dividerBlock,
+      sectionBlock(sunSummary),
+    ];
+
+    if (warningLines.length > 0) {
+      blocks.push(dividerBlock);
+      blocks.push(sectionBlock(warningLines.join("\n")));
+    }
+
+    await sendSlackNotification("auto", {
+      text: `Weekend roster for ${satLabel} & ${sunLabel}`,
+      blocks,
+    });
+  }
+
+  // ── ALERT notification — extra hands ──────────────────────────────────────
+
+  const alertDays = [
+    { iso: satIso, label: satLabel, day: satDay },
+    { iso: sunIso, label: sunLabel, day: sunDay },
+  ];
+
+  for (const { label, day } of alertDays) {
+    if (!day) continue;
+    const extraHands = computeExtraHandsRequired(
+      day.pickupsList ?? [],
+      day.dropoffsList ?? [],
+    );
+    if (!extraHands) continue;
+
+    const rosterForDay = rosterRows.filter((r) => r.date === day.date && r.isAdmin);
+    const workerNames = [...new Map(rosterForDay.map((r) => [r.userId, r])).values()]
+      .map((w) => slackMention(w.username));
+    const rosterLine = workerNames.length > 0
+      ? workerNames.join(", ")
+      : "_No one assigned yet_";
+
+    await sendSlackNotification("alert", {
+      text: `Extra hands recommended on ${label} (${extraHands.slot})`,
+      blocks: [
+        headerBlock(`Extra Hands Recommended — ${label}`),
+        sectionBlock(
+          `*Recommended slot:* ${extraHands.slot}\n` +
+          `*Reason:* ${extraHands.reason}\n` +
+          `*Current roster:* ${rosterLine}`,
+        ),
+        dividerBlock,
+        contextBlock([
+          `${day.pickups} pickup${day.pickups !== 1 ? "s" : ""} · ` +
+          `${day.dropoffs} dropoff${day.dropoffs !== 1 ? "s" : ""} · ` +
+          `${day.carsToWash ?? 0} car${day.carsToWash !== 1 ? "s" : ""} to wash`,
+        ]),
+      ],
+    });
+  }
+
+  console.log("[cron] Weekend roster notification complete.");
+}
+
+// Every Friday at noon NZ time
+cron.schedule("0 12 * * 5", () => {
+  runWeekendRosterNotification().catch((err) =>
+    console.error("[cron] Weekend roster notification failed:", err),
+  );
+}, { timezone: NZ_TZ });
+
+// ── Server start ─────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
