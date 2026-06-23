@@ -1170,6 +1170,134 @@ cron.schedule("0 12 * * 5", () => {
   );
 }, { timezone: NZ_TZ });
 
+// ── Quick turnaround Slack notifications ─────────────────────────────────────
+//
+// "Quick turnaround" = a dropoff today whose vehicle has another booking
+// starting within 24h (`nextBookingWithin24h: true` on the dropoffsList item).
+// These come straight from the raw Airtable/Supabase payload, so this reads
+// the un-normalized day object rather than going through normalizeDay() —
+// normalizeDay/normalizeTripList intentionally strip unlisted fields and feed
+// the client-facing /api/data shape, which we don't want to change here.
+
+/**
+ * Fetch the raw (un-normalized) day object for a given ISO date from the
+ * latest staffing_data snapshot.
+ * @param {string} dateIso - YYYY-MM-DD
+ * @returns {Promise<Record<string, unknown> | null>}
+ */
+async function fetchRawStaffingDay(dateIso) {
+  const { data, error } = await supabase
+    .from("staffing_data")
+    .select("days")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data || !Array.isArray(data.days)) return null;
+
+  const match = data.days.find(
+    (d) => d && typeof d === "object" && /** @type {Record<string, unknown>} */ (d).date === dateIso,
+  );
+  return match ? /** @type {Record<string, unknown>} */ (match) : null;
+}
+
+/**
+ * @typedef {{ id: string, time: string, vehicle: string, nextPickupDateTime: string | null }} QuickTurnaroundItem
+ */
+
+/**
+ * @param {Record<string, unknown> | null} rawDay
+ * @returns {QuickTurnaroundItem[]}
+ */
+function findQuickTurnarounds(rawDay) {
+  const dropoffsList =
+    rawDay && Array.isArray(rawDay.dropoffsList) ? rawDay.dropoffsList : [];
+  /** @type {QuickTurnaroundItem[]} */
+  const out = [];
+  for (const item of dropoffsList) {
+    if (!item || typeof item !== "object") continue;
+    const o = /** @type {Record<string, unknown>} */ (item);
+    if (o.nextBookingWithin24h !== true) continue;
+    out.push({
+      id: typeof o.id === "string" ? o.id : String(o.id ?? ""),
+      time: typeof o.time === "string" ? o.time : "",
+      vehicle: typeof o.vehicle === "string" ? o.vehicle : "Unknown vehicle",
+      nextPickupDateTime: typeof o.nextPickupDateTime === "string" ? o.nextPickupDateTime : null,
+    });
+  }
+  return out;
+}
+
+/**
+ * Format an ISO datetime string's clock value directly (e.g. "1:30 PM"). Returns null on bad input.
+ *
+ * Airtable sends these timestamps with a trailing "Z" but the hour/minute is already the
+ * intended NZ wall-clock time (not true UTC) — so we read the UTC components as-is rather
+ * than applying a timezone conversion, which would double-shift the hour.
+ * @param {string | null} iso
+ * @returns {string | null}
+ */
+function formatNzTimeFromIso(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const hours = d.getUTCHours();
+  const minutes = d.getUTCMinutes();
+  const period = hours >= 12 ? "PM" : "AM";
+  const displayHour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${displayHour}:${String(minutes).padStart(2, "0")} ${period}`;
+}
+
+/**
+ * @param {string} dateLabel
+ * @param {QuickTurnaroundItem[]} items
+ */
+function buildQuickTurnaroundBlocks(dateLabel, items) {
+  const lines = items.map((item) => {
+    const nextPickup = formatNzTimeFromIso(item.nextPickupDateTime);
+    const nextPickupText = nextPickup ? `next pickup ${nextPickup}` : "next pickup time unknown";
+    return `• *${item.vehicle}* — dropping off ${item.time || "time unknown"}, ${nextPickupText}`;
+  });
+
+  return [
+    headerBlock("🔄 Quick Turnarounds Today"),
+    sectionBlock(
+      `*${dateLabel}* — ${items.length} vehicle${items.length > 1 ? "s" : ""} ` +
+        `need${items.length === 1 ? "s" : ""} turning around within 24h:\n\n${lines.join("\n")}`,
+    ),
+    dividerBlock,
+    contextBlock(["Make sure these are cleaned and ready before the next pickup."]),
+  ];
+}
+
+async function runQuickTurnaroundNotification() {
+  console.log("[cron] Running quick turnaround notification...");
+
+  const todayIso = new Date().toLocaleDateString("en-CA", { timeZone: NZ_TZ }); // YYYY-MM-DD
+  const rawDay = await fetchRawStaffingDay(todayIso);
+  const items = findQuickTurnarounds(rawDay);
+
+  if (items.length === 0) {
+    console.log(`[cron] No quick turnarounds for ${todayIso}. Skipping notification.`);
+    return;
+  }
+
+  const dateLabel = formatDayLabel(todayIso);
+  await sendSlackNotification("alert", {
+    text: `🔄 ${items.length} quick turnaround${items.length > 1 ? "s" : ""} today (${dateLabel})`,
+    blocks: buildQuickTurnaroundBlocks(dateLabel, items),
+  });
+
+  console.log("[cron] Quick turnaround notification complete.");
+}
+
+// Every day at 7am NZ time
+cron.schedule("0 7 * * *", () => {
+  runQuickTurnaroundNotification().catch((err) =>
+    console.error("[cron] Quick turnaround notification failed:", err),
+  );
+}, { timezone: NZ_TZ });
+
 // ── Server start ─────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3001;
