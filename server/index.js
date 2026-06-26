@@ -1164,11 +1164,29 @@ async function runWeekendRosterNotification() {
 }
 
 // Every Friday at noon NZ time
-cron.schedule("0 12 * * 5", () => {
-  runWeekendRosterNotification().catch((err) =>
-    console.error("[cron] Weekend roster notification failed:", err),
-  );
-}, { timezone: NZ_TZ });
+// cron.schedule("0 12 * * 5", () => {
+//   runWeekendRosterNotification().catch((err) =>
+//     console.error("[cron] Weekend roster notification failed:", err),
+//   );
+// }, { timezone: NZ_TZ });
+
+console.log("Server started:", new Date().toISOString());
+
+console.log("Scheduling Friday cron");
+
+cron.schedule(
+  "0 13 * * 5",
+  () => {
+    console.log("Friday cron fired:", new Date().toISOString());
+
+    runWeekendRosterNotification().catch(err =>
+      console.error(err)
+    );
+  },
+  {
+    timezone: "Pacific/Auckland",
+  }
+);
 
 // ── Quick turnaround Slack notifications ─────────────────────────────────────
 //
