@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import "dotenv/config"; // loads .env into process.env
-import cron from "node-cron";
 import {
   sendSlackNotification,
   slackMention,
@@ -1163,30 +1162,29 @@ async function runWeekendRosterNotification() {
   console.log("[cron] Weekend roster notification complete.");
 }
 
-// Every Friday at noon NZ time
-// cron.schedule("0 12 * * 5", () => {
-//   runWeekendRosterNotification().catch((err) =>
-//     console.error("[cron] Weekend roster notification failed:", err),
-//   );
-// }, { timezone: NZ_TZ });
-
-console.log("Server started:", new Date().toISOString());
-
-console.log("Scheduling Friday cron");
-
-cron.schedule(
-  "0 13 * * 5",
-  () => {
-    console.log("Friday cron fired:", new Date().toISOString());
-
-    runWeekendRosterNotification().catch(err =>
-      console.error(err)
-    );
-  },
-  {
-    timezone: "Pacific/Auckland",
+/** Verify Vercel cron secret so only Vercel can invoke these endpoints. */
+function verifyCronSecret(req, res) {
+  const secret = process.env.CRON_SECRET;
+  if (secret && req.headers.authorization !== `Bearer ${secret}`) {
+    res.status(401).json({ error: "Unauthorized" });
+    return false;
   }
-);
+  return true;
+}
+
+// Vercel cron: every Friday at 1am UTC = 1pm NZST
+// vercel.json schedule: "0 1 * * 5"
+app.get("/api/cron/weekend-roster", async (req, res) => {
+  if (!verifyCronSecret(req, res)) return;
+  console.log("[cron] weekend-roster triggered:", new Date().toISOString());
+  try {
+    await runWeekendRosterNotification();
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error("[cron] weekend-roster failed:", err);
+    return res.status(500).json({ error: "Cron job failed." });
+  }
+});
 
 // ── Quick turnaround Slack notifications ─────────────────────────────────────
 //
@@ -1309,12 +1307,19 @@ async function runQuickTurnaroundNotification() {
   console.log("[cron] Quick turnaround notification complete.");
 }
 
-// Every day at 7am NZ time
-cron.schedule("0 7 * * *", () => {
-  runQuickTurnaroundNotification().catch((err) =>
-    console.error("[cron] Quick turnaround notification failed:", err),
-  );
-}, { timezone: NZ_TZ });
+// Vercel cron: every day at 7pm UTC = 7am NZST
+// vercel.json schedule: "0 19 * * *"
+app.get("/api/cron/quick-turnaround", async (req, res) => {
+  if (!verifyCronSecret(req, res)) return;
+  console.log("[cron] quick-turnaround triggered:", new Date().toISOString());
+  try {
+    await runQuickTurnaroundNotification();
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error("[cron] quick-turnaround failed:", err);
+    return res.status(500).json({ error: "Cron job failed." });
+  }
+});
 
 // ── Server start ─────────────────────────────────────────────────────────────
 
