@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { airtableNzDateTimeWallClockMs, nzWallClockNowMs } from '../lib/rosterHelpers'
 import type { DirtyCar } from '../staffingDay'
 import './DirtyCarsPanel.css'
 
@@ -13,12 +14,10 @@ function calculateTimeUntilPickup(pickupDateTime: string | null): string {
   if (!pickupDateTime) return ''
 
   try {
-    const now = new Date()
-    const pickup = new Date(pickupDateTime)
+    const pickupMs = airtableNzDateTimeWallClockMs(pickupDateTime)
+    if (!Number.isFinite(pickupMs)) return ''
 
-    if (!Number.isFinite(pickup.getTime())) return ''
-
-    const diffMs = pickup.getTime() - now.getTime()
+    const diffMs = pickupMs - nzWallClockNowMs()
     if (diffMs <= 0) return 'Pickup now'
 
     const diffHours = diffMs / (1000 * 60 * 60)

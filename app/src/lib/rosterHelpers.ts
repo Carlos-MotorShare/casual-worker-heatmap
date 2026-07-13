@@ -169,6 +169,52 @@ export function getGreetingByTimeNZ(username: string): string {
   return `Good evening, ${username}`
 }
 
+/**
+ * Airtable ISO datetimes end with Z but the components are NZ wall-clock (not UTC).
+ * @see server/index.js `formatNzTimeFromIso`
+ */
+export function airtableNzDateTimeWallClockMs(iso: string): number {
+  const d = new Date(iso)
+  if (!Number.isFinite(d.getTime())) return NaN
+  return Date.UTC(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate(),
+    d.getUTCHours(),
+    d.getUTCMinutes(),
+    d.getUTCSeconds(),
+  )
+}
+
+/** Current NZ wall-clock as ms (same pseudo-UTC basis as {@link airtableNzDateTimeWallClockMs}). */
+export function nzWallClockNowMs(): number {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: NZ_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    })
+      .formatToParts(new Date())
+      .filter((p) => p.type !== 'literal')
+      .map(({ type, value }) => [type, value]),
+  )
+  let hour = Number(parts.hour)
+  if (hour === 24) hour = 0
+  return Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    hour,
+    Number(parts.minute),
+    Number(parts.second ?? 0),
+  )
+}
+
 export function summarizeRosterForDay(rows: RosterRow[]): {
   usernames: string[]
   count: number
