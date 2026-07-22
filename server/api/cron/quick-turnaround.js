@@ -1,7 +1,9 @@
 import { verifyCronSecret } from "../../helpers/cron.js";
+import { handleCors } from "../../helpers/cors.js";
 import { runQuickTurnaroundNotification } from "../../helpers/notifications.js";
 
 export default async function handler(req, res) {
+    if (handleCors(req, res)) return;
     if (req.method !== "GET") {
         return res.status(405).json({ error: "Method Not Allowed" });
     }

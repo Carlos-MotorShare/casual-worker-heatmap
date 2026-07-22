@@ -1,3 +1,4 @@
+import { handleCors } from "../helpers/cors.js";
 import { getUserFlags, isIsoDateString, normalizePgDateString, normalizePgTimeString } from "../helpers/rosters.js";
 import { supabase } from "../supabase.js";
 
@@ -123,6 +124,7 @@ async function saveRoster(req, res) {
 }
 
 export default function handler(req, res) {
+  if (handleCors(req, res)) return;
   if (req.method === "GET") return getRosters(req, res);
   if (req.method === "POST") return saveRoster(req, res);
   return res.status(405).json({ error: "Method Not Allowed" });
