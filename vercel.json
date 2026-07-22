@@ -1,12 +1,12 @@
 {
   "crons": [
     {
-      "path": "/api/cron/weekend-roster",
-      "schedule": "0 1 * * 5"
-    },
-    {
       "path": "/api/cron/quick-turnaround",
       "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/cron/weekend-roster",
+      "schedule": "0 1 * * 5"
     }
   ]
 }
