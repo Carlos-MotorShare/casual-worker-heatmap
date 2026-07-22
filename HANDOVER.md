@@ -114,7 +114,9 @@ Light/dark toggle stored in `localStorage` via `useTheme`. Driven by CSS variabl
 
 ## Backend (`server/`)
 
-### `index.js` — all routes
+### API routing
+
+`server/index.js` is the local Express bootstrap. GET endpoints are implemented as standalone Vercel handlers in `server/api/` and registered with Express for local development. Shared normalization, roster, cron, and notification logic lives in `server/helpers/`.
 
 | Route | Method | Purpose |
 |---|---|---|

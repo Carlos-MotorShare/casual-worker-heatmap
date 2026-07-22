@@ -1,11 +1,11 @@
-import { runWeekendRosterNotification } from "../../services/notifications.js";
+import { verifyCronSecret } from "../../helpers/cron.js";
+import { runWeekendRosterNotification } from "../../helpers/notifications.js";
 
 export default async function handler(req, res) {
-  const auth = req.headers.authorization;
-
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return res.status(401).json({ error: "Unauthorized" });
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method Not Allowed" });
   }
+  if (!verifyCronSecret(req, res)) return;
 
   console.log("[cron] weekend-roster triggered:", new Date().toISOString());
 
