@@ -43,7 +43,7 @@ Airtable
 
 The `staffing_data` table stores a single JSONB blob per snapshot. The server always keeps exactly one row (the latest). There is no historical day-level table — all day data lives inside `days[]` JSONB on that one row.
 
-There is also a legacy `/api/stream` SSE endpoint — it was deprecated and replaced with polling. It now returns HTTP 410.
+The legacy SSE endpoint has been removed; the frontend polls `/api/data` every 60 seconds instead.
 
 ---
 

@@ -9,7 +9,6 @@ import healthHandler from "./api/health.js";
 import rostersHandler from "./api/rosters.js";
 import deleteRosterBlockHandler from "./api/rosters/delete-block.js";
 import staffColoursHandler from "./api/staff-colours.js";
-import streamHandler from "./api/stream.js";
 import workerUsersHandler from "./api/worker-users.js";
 import quickTurnaroundCronHandler from "./api/cron/quick-turnaround.js";
 import weekendRosterCronHandler from "./api/cron/weekend-roster.js";
@@ -34,7 +33,6 @@ const getRoutes = [
   ["/api/worker-users", workerUsersHandler],
   ["/api/admin-users", adminUsersHandler],
   ["/api/staff-colours", staffColoursHandler],
-  ["/api/stream", streamHandler],
   ["/api/cron/weekend-roster", weekendRosterCronHandler],
   ["/api/cron/quick-turnaround", quickTurnaroundCronHandler],
 ];
