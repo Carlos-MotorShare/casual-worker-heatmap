@@ -5,7 +5,7 @@ import adminUsersHandler from "./api/admin-users.js";
 import airtableHandler from "./api/airtable.js";
 import loginHandler from "./api/auth/login.js";
 import dataHandler from "./api/data.js";
-import healthHandler from "./api/health.js";
+import healthHandler from "./health.js";
 import rostersHandler from "./api/rosters.js";
 import deleteRosterBlockHandler from "./api/rosters/delete-block.js";
 import staffColoursHandler from "./api/staff-colours.js";
