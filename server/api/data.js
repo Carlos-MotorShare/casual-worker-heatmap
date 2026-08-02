@@ -44,7 +44,10 @@ export default async function handler(req, res) {
     let cloudflareResponse = { timestamp: null, cars: { cars: [] } };
 
     if (process.env.CLOUDFLARE_API_URL) {
-      const cloudflareFetch = await fetch(process.env.CLOUDFLARE_API_URL, {
+      const rawUrl = process.env.CLOUDFLARE_API_URL.trim();
+      const cloudflareUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+
+      const cloudflareFetch = await fetch(cloudflareUrl, {
         method: "GET",
         headers: {
           "X-API-Key": process.env.CLOUDFLARE_API_KEY ?? "",
