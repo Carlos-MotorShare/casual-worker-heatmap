@@ -14,7 +14,7 @@ import { useUserStore } from './stores/useUserStore'
 import BottomNav, { type BottomNavKey } from './components/BottomNav'
 import todayIcon from './assets/logo_white.png'
 import calendarIcon from './assets/calendar.png'
-import eventsIcon from './assets/events_white.png'
+import eventsIcon from './assets/stacker_white.png'
 import moonIcon from './assets/moon.png'
 import sunIcon from './assets/sun_white.png'
 import darkBG from './assets/darkBG.png'
@@ -23,7 +23,12 @@ import settingsIcon from './assets/settings.png'
 import settingsWhiteIcon from './assets/settings_white.png'
 import DayDetailPanel from './components/DayDetailPanel'
 import MonthlyCalendar from './components/MonthlyCalendar'
+import StackersPanel from './components/StackersPanel'
 import { useTheme } from './lib/useTheme'
+import {
+  parseCloudflareStackerData,
+  type CloudflareStackerData,
+} from './lib/stackerTypes'
 
 const API_BASE_URL =
   import.meta.env.REACT_APP_API_URL?.toString().trim() || 'http://localhost:3001'
@@ -51,6 +56,9 @@ function App() {
   const [staffColourByLowerName, setStaffColourByLowerName] = useState<
     Record<string, string>
   >({})
+  const [stackerData, setStackerData] = useState<CloudflareStackerData | null>(
+    null,
+  )
   const [, setCalendarMonth] = useState(() => {
     const n = new Date()
     return new Date(n.getFullYear(), n.getMonth(), 1)
@@ -300,6 +308,7 @@ function App() {
         const maybeGeneratedAt = (json as { generatedAt?: unknown }).generatedAt;
         const maybeDays = (json as { days?: unknown }).days;
         const maybeStaffsAway = (json as { staffsAway?: unknown }).staffsAway;
+        const maybeCloudflare = (json as { cloudflare?: unknown }).cloudflare;
 
         // generatedAt received but no longer displayed
         void maybeGeneratedAt;
@@ -393,6 +402,7 @@ function App() {
 
         setStaffsAway(chosen);
         setDirtyCars(dirtyCarsFromFirstDay);
+        setStackerData(parseCloudflareStackerData(maybeCloudflare));
         setLiveStatus('connected');
       }
     } catch (err) {
@@ -489,7 +499,7 @@ function App() {
 
   const navItems = useMemo(
     () => [
-      { key: 'events' as const, label: 'Events', iconSrc: eventsIcon },
+      { key: 'stackers' as const, label: 'Stackers', iconSrc: eventsIcon },
       { key: 'today' as const, label: 'Today', iconSrc: todayIcon },
       { key: 'calendar' as const, label: 'Calendar', iconSrc: calendarIcon },
     ],
@@ -555,20 +565,21 @@ function App() {
               <div
                 className={[
                   'page',
-                  activeTab === 'events' ? 'page--active' : '',
-                  leavingTab === 'events' ? 'page--leaving' : '',
+                  activeTab === 'stackers' ? 'page--active' : '',
+                  leavingTab === 'stackers' ? 'page--leaving' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                aria-hidden={activeTab !== 'events'}
+                aria-hidden={activeTab !== 'stackers'}
               >
                 <section className="center">
                   <div style={{ width: 'min(980px, 100%)', textAlign: 'left' }}>
-                    <h1 style={{ marginBottom: 12 }}>Events</h1>
-                    <p style={{ marginBottom: 18, opacity: 0.6 }}>
-                      Coming soon.
+                    <h1 style={{ marginBottom: 12 }}>Stackers</h1>
+                    <p style={{ marginBottom: 18, opacity: 0.9 }}>
+                      Live vehicle positions, best arrangement and trickle charging suggestions.
                     </p>
                   </div>
+                  <StackersPanel data={stackerData} />
                 </section>
               </div>
 
