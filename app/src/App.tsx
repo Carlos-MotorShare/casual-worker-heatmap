@@ -59,7 +59,6 @@ function App() {
   const [stackerData, setStackerData] = useState<CloudflareStackerData | null>(
     null,
   )
-  const [stackerLoading, setStackerLoading] = useState(true)
   const [, setCalendarMonth] = useState(() => {
     const n = new Date()
     return new Date(n.getFullYear(), n.getMonth(), 1)
@@ -309,6 +308,7 @@ function App() {
         const maybeGeneratedAt = (json as { generatedAt?: unknown }).generatedAt;
         const maybeDays = (json as { days?: unknown }).days;
         const maybeStaffsAway = (json as { staffsAway?: unknown }).staffsAway;
+        const maybeCloudflare = (json as { cloudflare?: unknown }).cloudflare;
 
         // generatedAt received but no longer displayed
         void maybeGeneratedAt;
@@ -402,6 +402,7 @@ function App() {
 
         setStaffsAway(chosen);
         setDirtyCars(dirtyCarsFromFirstDay);
+        setStackerData(parseCloudflareStackerData(maybeCloudflare));
         setLiveStatus('connected');
       }
     } catch (err) {
@@ -421,39 +422,6 @@ function App() {
     clearInterval(interval);
   };
 }, []);
-
-useEffect(() => {
-    let isMounted = true;
-
-    const fetchStacker = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/stacker-data`);
-        const json: unknown = await res.json();
-
-        if (!isMounted) return;
-
-        if (json && typeof json === 'object') {
-          const maybeCloudflare = (json as { cloudflare?: unknown }).cloudflare;
-          setStackerData(parseCloudflareStackerData(maybeCloudflare));
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (isMounted) setStackerLoading(false);
-      }
-    };
-
-    // Initial fetch
-    fetchStacker();
-
-    // Poll every 60 seconds (adjust as needed)
-    const interval = setInterval(fetchStacker, 60_000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, []);
 
   /** Blur + spinner until connected and at least 1s on screen (no sub-second flash). */
   const showMainLoader = !(liveStatus === 'connected' && minMainLoadDone) && !forceEnableAfterTimeout
@@ -611,26 +579,7 @@ useEffect(() => {
                       Live vehicle positions, best arrangement and trickle charging suggestions.
                     </p>
                   </div>
-                  {stackerLoading ? (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '48px 0',
-                      }}
-                    >
-                      <Ring
-                        size="32"
-                        stroke="5"
-                        bgOpacity="0"
-                        speed="1.6"
-                        color={theme === 'dark' ? 'white' : '#1a1a2e'}
-                      />
-                    </div>
-                  ) : (
-                    <StackersPanel data={stackerData} />
-                  )}
+                  <StackersPanel data={stackerData} />
                 </section>
               </div>
 
