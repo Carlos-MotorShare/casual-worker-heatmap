@@ -2,8 +2,30 @@
 
 const HIGH_CONFIDENCE = 0.98;
 const FUZZY_MATCH_THRESHOLD = 0.72;
+const PREVIOUS_PLATE_SIMILARITY_THRESHOLD = 0.5;
+const STACKER_CACHE_TTL_MS = 15 * 60 * 1000;
 const STACKER_COUNT = 6;
 const LEVEL_COUNT = 4;
+
+/** @type {Record<string, string[]>} */
+const OCR_CONFUSABLE_GROUPS = {
+  "0": ["O"],
+  "1": ["I", "L"],
+  "2": ["Z"],
+  "5": ["S"],
+  "6": ["G"],
+  "8": ["B", "D"],
+  B: ["8"],
+  D: ["8"],
+  G: ["6"],
+  I: ["1"],
+  L: ["1"],
+  M: ["N"],
+  N: ["M"],
+  O: ["0"],
+  S: ["5"],
+  Z: ["2"],
+};
 
 /**
  * @param {string} plate
@@ -24,7 +46,18 @@ export function isVacantPlate(plate) {
  * @param {string} a
  * @param {string} b
  */
-function levenshtein(a, b) {
+function ocrCharsEquivalent(a, b) {
+  if (a === b) return true;
+  const aAlts = OCR_CONFUSABLE_GROUPS[a] ?? [];
+  const bAlts = OCR_CONFUSABLE_GROUPS[b] ?? [];
+  return aAlts.includes(b) || bAlts.includes(a);
+}
+
+/**
+ * @param {string} a
+ * @param {string} b
+ */
+function levenshtein(a, b, { ocrAware = false } = {}) {
   if (a === b) return 0;
   if (!a.length) return b.length;
   if (!b.length) return a.length;
@@ -33,7 +66,10 @@ function levenshtein(a, b) {
   for (let i = 1; i <= a.length; i++) {
     let prev = i;
     for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const same = ocrAware
+        ? ocrCharsEquivalent(a[i - 1], b[j - 1])
+        : a[i - 1] === b[j - 1];
+      const cost = same ? 0 : 1;
       const next = Math.min(row[j] + 1, prev + 1, row[j - 1] + cost);
       row[j - 1] = prev;
       prev = next;
@@ -47,17 +83,17 @@ function levenshtein(a, b) {
  * @param {string} detected
  * @param {string} known
  */
-function plateSimilarity(detected, known) {
+export function plateSimilarity(detected, known) {
   if (!detected || !known) return 0;
   if (detected === known) return 1;
 
   const maxLen = Math.max(detected.length, known.length);
-  const editRatio = 1 - levenshtein(detected, known) / maxLen;
+  const editRatio = 1 - levenshtein(detected, known, { ocrAware: true }) / maxLen;
 
   let positionMatches = 0;
   const minLen = Math.min(detected.length, known.length);
   for (let i = 0; i < minLen; i++) {
-    if (detected[i] === known[i]) positionMatches++;
+    if (ocrCharsEquivalent(detected[i], known[i])) positionMatches++;
   }
   const positionRatio = minLen > 0 ? positionMatches / minLen : 0;
 
@@ -67,6 +103,22 @@ function plateSimilarity(detected, known) {
   }
 
   return Math.max(editRatio, positionRatio, containsRatio);
+}
+
+/**
+ * OCR misreads often share the first letter (e.g. RDN95 vs R8MS).
+ * @param {string} detected
+ * @param {string} reference
+ */
+export function platesLookLikeSameVehicle(detected, reference) {
+  const normalizedDetected = normalizePlate(detected);
+  const normalizedReference = normalizePlate(reference);
+  if (!normalizedDetected || !normalizedReference) return false;
+  if (normalizedDetected === normalizedReference) return true;
+  if (normalizedDetected[0] !== normalizedReference[0]) return false;
+
+  return plateSimilarity(normalizedDetected, normalizedReference) >=
+    PREVIOUS_PLATE_SIMILARITY_THRESHOLD;
 }
 
 /**
@@ -221,12 +273,16 @@ function parseRawCars(raw) {
 /**
  * @param {StackerSlot[]} rawSlots
  * @param {string[]} knownPlates
+ * @param {StackerSlot[]} [previousSlots]
  * @returns {StackerSlot[]}
  */
-export function reconcileStackerSlots(rawSlots, knownPlates) {
+export function reconcileStackerSlots(rawSlots, knownPlates, previousSlots = []) {
   const knownNormalized = new Set(knownPlates.map(normalizePlate));
   const sorted = [...rawSlots].sort((a, b) => b.confidence - a.confidence);
   const rawByKey = new Map(rawSlots.map((slot) => [`${slot.stacker}:${slot.level}`, slot]));
+  const previousByKey = new Map(
+    previousSlots.map((slot) => [`${slot.stacker}:${slot.level}`, slot]),
+  );
 
   console.log(
     `[stacker-data] reconciling ${rawSlots.length} slots against ${knownPlates.length} known plates (thresholds: highConfidence=${HIGH_CONFIDENCE}, fuzzy=${FUZZY_MATCH_THRESHOLD})`,
@@ -304,6 +360,26 @@ export function reconcileStackerSlots(rawSlots, knownPlates) {
       continue;
     }
 
+    const previousSlot = previousByKey.get(key);
+    const previousPlate = tryUsePreviousPlate(rawPlate, previousSlot, usedPlates);
+    if (previousPlate) {
+      const similarity = plateSimilarity(normalizedRaw, normalizePlate(previousPlate));
+      logSlotDecision(stacker, level, `OCR misread similar to previous slot plate -> ${previousPlate}`, {
+        rawPlate,
+        previousPlate,
+        confidence,
+        similarity: Number(similarity.toFixed(3)),
+        topCandidates,
+      });
+      usedPlates.add(normalizePlate(previousPlate));
+      resolvedByKey.set(key, {
+        ...slot,
+        plate: previousPlate,
+        confidence: Math.max(slot.confidence, similarity),
+      });
+      continue;
+    }
+
     if (slot.confidence >= HIGH_CONFIDENCE) {
       if (!usedPlates.has(normalizedRaw)) {
         logSlotDecision(stacker, level, "high confidence unknown plate -> keep raw (not in DB)", {
@@ -375,10 +451,29 @@ export function reconcileStackerSlots(rawSlots, knownPlates) {
 }
 
 /**
+ * When OCR is too far from any known plate, reuse the previous correct plate
+ * for the same stacker slot if the reads look like the same vehicle.
+ * @param {string} rawPlate
+ * @param {StackerSlot | undefined} previousSlot
+ * @param {Set<string>} usedPlates
+ */
+function tryUsePreviousPlate(rawPlate, previousSlot, usedPlates) {
+  if (!previousSlot || isVacantPlate(previousSlot.plate)) return null;
+
+  const previousPlate = previousSlot.plate.trim();
+  const normalizedPrevious = normalizePlate(previousPlate);
+  if (usedPlates.has(normalizedPrevious)) return null;
+  if (!platesLookLikeSameVehicle(rawPlate, previousPlate)) return null;
+
+  return previousPlate;
+}
+
+/**
  * @param {unknown} rawResponse
  * @param {string[]} knownPlates
+ * @param {StackerSlot[]} [previousSlots]
  */
-export function reconcileStackerResponse(rawResponse, knownPlates) {
+export function reconcileStackerResponse(rawResponse, knownPlates, previousSlots = []) {
   if (!rawResponse || typeof rawResponse !== "object") {
     return { timestamp: null, cars: { cars: [] } };
   }
@@ -386,7 +481,133 @@ export function reconcileStackerResponse(rawResponse, knownPlates) {
   const record = /** @type {Record<string, unknown>} */ (rawResponse);
   const timestamp = typeof record.timestamp === "string" ? record.timestamp : null;
   const rawSlots = parseRawCars(record);
-  const cars = reconcileStackerSlots(rawSlots, knownPlates);
+  const cars = reconcileStackerSlots(rawSlots, knownPlates, previousSlots);
 
   return { timestamp, cars: { cars } };
+}
+
+/**
+ * @param {import("@supabase/supabase-js").SupabaseClient} supabase
+ * @returns {Promise<{ timestamp: string | null, cars: { cars: StackerSlot[] } } | null>}
+ */
+async function fetchLatestStackerCacheRow(supabase) {
+  const { data, error } = await supabase
+    .from("stacker_data")
+    .select("id, created_at, data")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[stacker-data] failed to fetch stacker_data cache:", error);
+    return null;
+  }
+
+  return data;
+}
+
+/**
+ * @param {string} data
+ * @returns {{ timestamp: string | null, cars: { cars: StackerSlot[] } } | null}
+ */
+function parseCachedStackerResponse(data) {
+  try {
+    const parsed = JSON.parse(data);
+    if (!parsed || typeof parsed !== "object") return null;
+    return {
+      timestamp: typeof parsed.timestamp === "string" ? parsed.timestamp : null,
+      cars: {
+        cars: parseRawCars(parsed),
+      },
+    };
+  } catch (error) {
+    console.error("[stacker-data] failed to parse cached stacker_data:", error);
+    return null;
+  }
+}
+
+/**
+ * @param {import("@supabase/supabase-js").SupabaseClient} supabase
+ * @param {{ timestamp: string | null, cars: { cars: StackerSlot[] } }} response
+ */
+async function storeStackerCache(supabase, response) {
+  const { data: inserted, error: insertError } = await supabase
+    .from("stacker_data")
+    .insert({ data: JSON.stringify(response) })
+    .select("id")
+    .single();
+
+  if (insertError) {
+    console.error("[stacker-data] failed to store stacker_data cache:", insertError);
+    return;
+  }
+
+  if (!inserted?.id) return;
+
+  const { error: deleteError } = await supabase
+    .from("stacker_data")
+    .delete()
+    .not("id", "eq", inserted.id);
+
+  if (deleteError) {
+    console.error("[stacker-data] failed to prune older stacker_data rows:", deleteError);
+  }
+}
+
+/**
+ * Returns cached stacker data when fresh (<15m), otherwise fetches Cloudflare,
+ * reconciles plates, stores the result, and returns it.
+ * @param {import("@supabase/supabase-js").SupabaseClient} supabase
+ */
+export async function fetchStackerData(supabase) {
+  const emptyResponse = { timestamp: null, cars: { cars: [] } };
+  const cachedRow = await fetchLatestStackerCacheRow(supabase);
+
+  if (cachedRow) {
+    const ageMs = Date.now() - new Date(cachedRow.created_at).getTime();
+    if (ageMs <= STACKER_CACHE_TTL_MS) {
+      const cached = parseCachedStackerResponse(cachedRow.data);
+      if (cached) {
+        console.log(
+          `[stacker-data] serving cached stacker data age=${Math.round(ageMs / 1000)}s id=${cachedRow.id}`,
+        );
+        return cached;
+      }
+    }
+  }
+
+  if (!process.env.CLOUDFLARE_API_URL) {
+    console.log("[stacker-data] CLOUDFLARE_API_URL not set, skipping stacker fetch.");
+    return emptyResponse;
+  }
+
+  const rawUrl = process.env.CLOUDFLARE_API_URL.trim();
+  const cloudflareUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+
+  const cloudflareFetch = await fetch(cloudflareUrl, {
+    method: "GET",
+    headers: {
+      "X-API-Key": process.env.CLOUDFLARE_API_KEY ?? "",
+    },
+  });
+
+  if (!cloudflareFetch.ok) {
+    console.error(
+      `[stacker-data] cloudflare fetch failed status=${cloudflareFetch.status}`,
+    );
+    return emptyResponse;
+  }
+
+  const rawCloudflare = await cloudflareFetch.json();
+  const knownPlates = await fetchKnownPlates(supabase);
+  const previousSlots = cachedRow ? (parseCachedStackerResponse(cachedRow.data)?.cars.cars ?? []) : [];
+  const response = reconcileStackerResponse(rawCloudflare, knownPlates, previousSlots);
+
+  await storeStackerCache(supabase, response);
+
+  console.log(
+    `[stacker-data] fetched fresh cloudflare data timestamp=${response.timestamp} cars=${response.cars.cars.length} knownPlates=${knownPlates.length}`,
+  );
+
+  return response;
 }

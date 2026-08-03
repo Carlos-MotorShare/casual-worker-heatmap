@@ -1,9 +1,6 @@
 import { handleCors } from "../helpers/cors.js";
 import { rowToClientPayload } from "../helpers/staffing-data.js";
-import {
-  fetchKnownPlates,
-  reconcileStackerResponse,
-} from "../helpers/stacker-data.js";
+import { fetchStackerData } from "../helpers/stacker-data.js";
 import { supabase } from "../supabase.js";
 
 export default async function handler(req, res) {
@@ -41,35 +38,7 @@ export default async function handler(req, res) {
     );
 
 
-    let cloudflareResponse = { timestamp: null, cars: { cars: [] } };
-
-    if (process.env.CLOUDFLARE_API_URL) {
-      const rawUrl = process.env.CLOUDFLARE_API_URL.trim();
-      const cloudflareUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
-
-      const cloudflareFetch = await fetch(cloudflareUrl, {
-        method: "GET",
-        headers: {
-          "X-API-Key": process.env.CLOUDFLARE_API_KEY ?? "",
-        },
-      });
-
-      if (!cloudflareFetch.ok) {
-        console.error(
-          `[data] cloudflare fetch failed status=${cloudflareFetch.status}`,
-        );
-      } else {
-        const rawCloudflare = await cloudflareFetch.json();
-        const knownPlates = await fetchKnownPlates(supabase);
-        cloudflareResponse = reconcileStackerResponse(rawCloudflare, knownPlates);
-
-        console.log(
-          `[data] cloudflare reconciled timestamp=${cloudflareResponse.timestamp} cars=${cloudflareResponse.cars.cars.length} knownPlates=${knownPlates.length}`,
-        );
-      }
-    } else {
-      console.log("[data] CLOUDFLARE_API_URL not set, skipping stacker fetch.");
-    }
+    const cloudflareResponse = await fetchStackerData(supabase);
 
     const combinedResponse = {
       ...responsePayload,

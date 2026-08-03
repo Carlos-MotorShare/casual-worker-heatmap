@@ -3,7 +3,11 @@
  * Run with: node test-stacker-data.js
  */
 
-import { reconcileStackerResponse } from "./helpers/stacker-data.js";
+import {
+  plateSimilarity,
+  platesLookLikeSameVehicle,
+  reconcileStackerResponse,
+} from "./helpers/stacker-data.js";
 
 const EXAMPLE_RESPONSE = {
   timestamp: "2026-07-29T05:36:53.519Z",
@@ -55,6 +59,34 @@ const KNOWN_PLATES = [
 ];
 
 const reconciled = reconcileStackerResponse(EXAMPLE_RESPONSE, KNOWN_PLATES);
+
+console.log("OCR similarity checks:\n");
+console.log(
+  `RDN95 vs R8MS: similarity=${plateSimilarity("RDN95", "R8MS").toFixed(3)} sameVehicle=${platesLookLikeSameVehicle("RDN95", "R8MS")}`,
+);
+console.log(
+  `R8XS vs R8MS: similarity=${plateSimilarity("R8XS", "R8MS").toFixed(3)} sameVehicle=${platesLookLikeSameVehicle("R8XS", "R8MS")}`,
+);
+
+const previousSlots = [
+  { stacker: 6, level: 3, plate: "R8MS", confidence: 0.95 },
+];
+const misreadResponse = {
+  timestamp: "2026-08-03T04:00:00.000Z",
+  cars: {
+    cars: [
+      { stacker: 6, level: 3, plate: "RDN95", confidence: 0.85 },
+    ],
+  },
+};
+const misreadReconciled = reconcileStackerResponse(
+  misreadResponse,
+  KNOWN_PLATES,
+  previousSlots,
+);
+console.log(
+  `\nPrevious-plate fallback: RDN95 -> ${misreadReconciled.cars.cars[0]?.plate} (expected R8MS)\n`,
+);
 
 console.log("Reconciled stacker data:\n");
 for (const slot of reconciled.cars.cars) {
