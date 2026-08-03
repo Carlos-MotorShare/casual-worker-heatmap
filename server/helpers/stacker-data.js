@@ -102,29 +102,62 @@ export async function fetchKnownPlates(supabase) {
 }
 
 /**
+ * @param {number} stacker
+ * @param {number} level
+ * @param {string} message
+ * @param {Record<string, unknown>} [details]
+ */
+function logSlotDecision(stacker, level, message, details) {
+  const prefix = `[stacker-data] S${stacker} L${level}`;
+  if (details && Object.keys(details).length > 0) {
+    console.log(`${prefix}: ${message}`, details);
+  } else {
+    console.log(`${prefix}: ${message}`);
+  }
+}
+
+/**
  * @param {string} detected
  * @param {string[]} knownPlates
  * @param {Set<string>} usedNormalized
+ * @param {{ includeBelowThreshold?: boolean }} [options]
  */
-function findBestPlateMatch(detected, knownPlates, usedNormalized) {
+function findBestPlateMatch(detected, knownPlates, usedNormalized, options = {}) {
   const normalizedDetected = normalizePlate(detected);
   let best = null;
+  /** @type {Array<{ plate: string, score: number, used: boolean }>} */
+  const scored = [];
 
   for (const known of knownPlates) {
     const normalizedKnown = normalizePlate(known);
-    if (usedNormalized.has(normalizedKnown)) continue;
+    const used = usedNormalized.has(normalizedKnown);
 
     if (normalizedKnown === normalizedDetected) {
-      return { plate: known, score: 1, method: "exact" };
+      return {
+        best: { plate: known, score: 1, method: "exact" },
+        scored: [{ plate: known, score: 1, used }],
+      };
     }
 
     const score = plateSimilarity(normalizedDetected, normalizedKnown);
-    if (score >= FUZZY_MATCH_THRESHOLD && (!best || score > best.score)) {
+    scored.push({ plate: known, score, used });
+    if (!used && score >= FUZZY_MATCH_THRESHOLD && (!best || score > best.score)) {
       best = { plate: known, score, method: "fuzzy" };
     }
   }
 
-  return best;
+  scored.sort((a, b) => b.score - a.score);
+  const topCandidates = scored.slice(0, 5).map(({ plate, score, used }) => ({
+    plate,
+    score: Number(score.toFixed(3)),
+    used,
+  }));
+
+  if (options.includeBelowThreshold || !best) {
+    return { best, scored: topCandidates };
+  }
+
+  return { best, scored: topCandidates };
 }
 
 /**
@@ -195,6 +228,10 @@ export function reconcileStackerSlots(rawSlots, knownPlates) {
   const sorted = [...rawSlots].sort((a, b) => b.confidence - a.confidence);
   const rawByKey = new Map(rawSlots.map((slot) => [`${slot.stacker}:${slot.level}`, slot]));
 
+  console.log(
+    `[stacker-data] reconciling ${rawSlots.length} slots against ${knownPlates.length} known plates (thresholds: highConfidence=${HIGH_CONFIDENCE}, fuzzy=${FUZZY_MATCH_THRESHOLD})`,
+  );
+
   /** @type {Map<string, StackerSlot>} */
   const resolvedByKey = new Map();
   /** @type {Set<string>} */
@@ -204,30 +241,60 @@ export function reconcileStackerSlots(rawSlots, knownPlates) {
     const key = `${slot.stacker}:${slot.level}`;
     const rawPlate = slot.plate.trim();
     const normalizedRaw = normalizePlate(rawPlate);
+    const { stacker, level, confidence } = slot;
 
     if (isVacantPlate(rawPlate)) {
       if (normalizedRaw === "UNKNOWN" && looksLikeAdjacentBleed(slot, rawByKey)) {
+        logSlotDecision(stacker, level, "UNKNOWN with adjacent occupied slot -> EMPTY (camera bleed)", {
+          rawPlate,
+          confidence,
+        });
         resolvedByKey.set(key, { ...slot, plate: "EMPTY" });
         continue;
       }
 
+      logSlotDecision(stacker, level, "sentinel plate -> EMPTY", { rawPlate, confidence });
       resolvedByKey.set(key, { ...slot, plate: "EMPTY" });
       continue;
     }
 
     if (slot.confidence >= HIGH_CONFIDENCE && knownNormalized.has(normalizedRaw)) {
       if (!usedPlates.has(normalizedRaw)) {
+        logSlotDecision(stacker, level, "high confidence exact known match -> keep", {
+          rawPlate,
+          normalizedRaw,
+          confidence,
+        });
         usedPlates.add(normalizedRaw);
         resolvedByKey.set(key, { ...slot, plate: rawPlate });
       } else {
+        logSlotDecision(stacker, level, "high confidence duplicate plate already used -> EMPTY", {
+          rawPlate,
+          normalizedRaw,
+          confidence,
+        });
         resolvedByKey.set(key, { ...slot, plate: "EMPTY", confidence: slot.confidence });
       }
       continue;
     }
 
-    const match = findBestPlateMatch(rawPlate, knownPlates, usedPlates);
+    const { best: match, scored: topCandidates } = findBestPlateMatch(
+      rawPlate,
+      knownPlates,
+      usedPlates,
+      { includeBelowThreshold: true },
+    );
+
     if (match) {
       const normalizedMatch = normalizePlate(match.plate);
+      logSlotDecision(stacker, level, `fuzzy/exact match -> ${match.plate}`, {
+        rawPlate,
+        normalizedRaw,
+        confidence,
+        method: match.method,
+        matchScore: Number(match.score.toFixed(3)),
+        topCandidates,
+      });
       usedPlates.add(normalizedMatch);
       resolvedByKey.set(key, {
         ...slot,
@@ -239,14 +306,33 @@ export function reconcileStackerSlots(rawSlots, knownPlates) {
 
     if (slot.confidence >= HIGH_CONFIDENCE) {
       if (!usedPlates.has(normalizedRaw)) {
+        logSlotDecision(stacker, level, "high confidence unknown plate -> keep raw (not in DB)", {
+          rawPlate,
+          normalizedRaw,
+          confidence,
+          topCandidates,
+        });
         usedPlates.add(normalizedRaw);
         resolvedByKey.set(key, { ...slot, plate: rawPlate });
       } else {
+        logSlotDecision(stacker, level, "high confidence duplicate unknown plate -> EMPTY", {
+          rawPlate,
+          normalizedRaw,
+          confidence,
+          topCandidates,
+        });
         resolvedByKey.set(key, { ...slot, plate: "EMPTY", confidence: slot.confidence });
       }
       continue;
     }
 
+    logSlotDecision(stacker, level, "low confidence, no fuzzy match above threshold -> EMPTY", {
+      rawPlate,
+      normalizedRaw,
+      confidence,
+      fuzzyThreshold: FUZZY_MATCH_THRESHOLD,
+      topCandidates,
+    });
     resolvedByKey.set(key, { ...slot, plate: "EMPTY", confidence: slot.confidence });
   }
 
@@ -258,6 +344,11 @@ export function reconcileStackerSlots(rawSlots, knownPlates) {
       if (!isVacantPlate(raw.plate)) continue;
       if (normalizePlate(raw.plate) !== "UNKNOWN" && raw.confidence >= HIGH_CONFIDENCE) continue;
 
+      logSlotDecision(slot.stacker, slot.level, `missing plate recovery -> ${missingPlates[0]}`, {
+        rawPlate: raw.plate,
+        confidence: raw.confidence,
+        missingPlate: missingPlates[0],
+      });
       resolvedByKey.set(key, {
         ...slot,
         plate: missingPlates[0],
@@ -266,11 +357,20 @@ export function reconcileStackerSlots(rawSlots, knownPlates) {
       usedPlates.add(normalizePlate(missingPlates[0]));
       break;
     }
+  } else if (missingPlates.length > 0) {
+    console.log("[stacker-data] unassigned known plates after reconciliation:", missingPlates);
   }
 
   return rawSlots.map((slot) => {
     const key = `${slot.stacker}:${slot.level}`;
-    return resolvedByKey.get(key) ?? { ...slot, plate: "EMPTY" };
+    const resolved = resolvedByKey.get(key) ?? { ...slot, plate: "EMPTY" };
+    if (!resolvedByKey.has(key)) {
+      logSlotDecision(slot.stacker, slot.level, "no resolution found -> EMPTY", {
+        rawPlate: slot.plate,
+        confidence: slot.confidence,
+      });
+    }
+    return resolved;
   });
 }
 
