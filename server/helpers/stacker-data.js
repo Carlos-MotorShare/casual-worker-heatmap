@@ -73,7 +73,7 @@ function plateSimilarity(detected, known) {
  * @param {import("@supabase/supabase-js").SupabaseClient} supabase
  */
 export async function fetchKnownPlates(supabase) {
-  const { data, error } = await supabase.from("vehicle_plates").select("plates");
+  const { data, error } = await supabase.from("vehicle_plates").select("plate");
 
   if (error) {
     console.error("[stacker-data] failed to fetch vehicle_plates:", error);
@@ -83,7 +83,7 @@ export async function fetchKnownPlates(supabase) {
   /** @type {string[]} */
   const plates = [];
   for (const row of data ?? []) {
-    const value = row?.plates;
+    const value = row?.plate;
     if (typeof value === "string" && value.trim()) {
       for (const part of value.split(/[,;\n]+/)) {
         const trimmed = part.trim();
