@@ -427,7 +427,7 @@ useEffect(() => {
 
     const fetchStacker = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/stacker-data`);
+        const res = await fetch(`${API_BASE_URL}/api/data?resource=stacker`);
         const json: unknown = await res.json();
 
         if (!isMounted) return;
