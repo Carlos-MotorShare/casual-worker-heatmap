@@ -1,0 +1,102 @@
+{
+  "911-001": {
+    "displayName": "Porsche 911",
+    "fullName": "Porsche 911 Carrera S"
+  },
+  "C8-001": {
+    "displayName": "Corvette C8",
+    "fullName": "Chevrolet Corvette C8"
+  },
+  "G63-001": {
+    "displayName": "Mercedes G63",
+    "fullName": "Mercedes-Benz AMG G63"
+  },
+  "GT4-001": {
+    "displayName": "Porsche GT4",
+    "fullName": "Porsche Cayman GT4"
+  },
+  "GTS-001": {
+    "displayName": "Mercedes GTS",
+    "fullName": "Mercedes Benz AMG GTS"
+  },
+  "I8-001": {
+    "displayName": "BMW I8",
+    "fullName": "BMW i8"
+  },
+  "R35-001": {
+    "displayName": "Nissan R35",
+    "fullName": "Nissan GTR R35"
+  },
+  "RR-001": {
+    "displayName": "Rolls Royce",
+    "fullName": "Rolls Royce Ghost"
+  },
+  "BB-001": {
+    "displayName": "Bentley Bentayga",
+    "fullName": "Bentley Bentayga"
+  },
+  "981-001": {
+    "displayName": "Porsche 981",
+    "fullName": "Porsche 981 Boxster"
+  },
+  "718-001": {
+    "displayName": "Porsche 718",
+    "fullName": "Porsche 718 Boxster"
+  },
+  "GT-001": {
+    "displayName": "Mercedes GT",
+    "fullName": "Mercedes AMG GT"
+  },
+  "C63S-001": {
+    "displayName": "Mercedes C63S",
+    "fullName": "Mercedes-Benz C63S"
+  },
+  "650S-001": {
+    "displayName": "McLaren 650S",
+    "fullName": "McLaren 650S Coupe"
+  },
+  "Z-001": {
+    "displayName": "Nissan Nismo Z",
+    "fullName": "Nissan Z NISMO"
+  },
+  "DH-001": {
+    "displayName": "Mustang Dark Horse",
+    "fullName": "Mustang Dark Horse"
+  },
+  "LP610-001": {
+    "displayName": "Lamborghini Huracan",
+    "fullName": "Lamborghini Huracan"
+  },
+  "FTYPE-001": {
+    "displayName": "Jaguar F-Type R",
+    "fullName": "Jaguar F-Type R"
+  },
+  "EXPO-001": {
+    "displayName": "Ford Expedition",
+    "fullName": "Ford Expedition Max"
+  },
+  "488-001": {
+    "displayName": "Ferrari 488",
+    "fullName": "Ferrari 488"
+  },
+  "HELLY-001": {
+    "displayName": "Dodge Hellcat",
+    "fullName": "Dodge Challenger SRT Hellcat Redeye"
+  },
+  "CHEV-001": {
+    "displayName": "Chevrolet Camaro",
+    "fullName": "Chevrolet Camaro SS"
+  },
+  "740LI-001": {
+    "displayName": "BMW 740LI",
+    "fullName": "BMW 740LI"
+  },
+  "R8-001": {
+    "displayName": "Audi R8",
+    "fullName": "Audi R8 V10 (Gen 2)"
+  },
+  "DB11-001": {
+    "displayName": "Aston Martin DB11",
+    "fullName": "Aston Martin DB11"
+  }
+}

@@ -629,7 +629,7 @@ useEffect(() => {
                       />
                     </div>
                   ) : (
-                    <StackersPanel data={stackerData} />
+                    <StackersPanel data={stackerData} days={effectiveDays} />
                   )}
                 </section>
               </div>

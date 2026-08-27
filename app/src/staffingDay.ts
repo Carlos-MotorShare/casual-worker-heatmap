@@ -3,6 +3,11 @@ export type DirtyCar = {
   nextPickupDateTime: string | null
 }
 
+export type FleetNextBooking = {
+  vehicleName: string
+  nextPickupDateTime: string | null
+}
+
 export type StaffingDay = {
   date: string
   pickups: number
@@ -16,9 +21,22 @@ export type StaffingDay = {
     endDate: string
     reason: string
   }>
+  fleetNextBookings?: FleetNextBooking[]
   dirtyCars?: DirtyCar[]
-  pickupsList?: Array<{ id: string; time: string; vehicle?: string }>
-  dropoffsList?: Array<{ id: string; time: string; vehicle?: string }>
+  pickupsList?: Array<{
+    id: string
+    time: string
+    vehicle?: string
+    nextPickupDateTime?: string | null
+    nextBookingWithin24h?: boolean
+  }>
+  dropoffsList?: Array<{
+    id: string
+    time: string
+    vehicle?: string
+    nextPickupDateTime?: string | null
+    nextBookingWithin24h?: boolean
+  }>
 }
 
 export type HeatmapMetric = 'carsToWash' | 'pickups'

@@ -9,7 +9,8 @@
  *   carsToWash: number,
  *   staffAwayWeighted: number,
  *   staffAwayCount: number,
- *   staffsAway?: Array<{ staffName: string, startDate: string, endDate: string, reason: string }>
+ *   staffsAway?: Array<{ staffName: string, startDate: string, endDate: string, reason: string }>,
+ *   fleetNextBookings?: Array<{ vehicleName: string, nextPickupDateTime: string | null }>
  * }} StaffingDayEntry
  */
 
@@ -57,6 +58,47 @@ function normalizeTripList(value) {
   const rows = [];
   for (const item of value) {
     const row = normalizeTripListItem(item);
+    if (row) rows.push(row);
+  }
+  return rows;
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {{ vehicleName: string, nextPickupDateTime: string | null } | null}
+ */
+function normalizeFleetNextBookingItem(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const object = /** @type {Record<string, unknown>} */ (raw);
+  const vehicleName =
+    typeof object.vehicleName === "string"
+      ? object.vehicleName
+      : typeof object.vehicle_name === "string"
+        ? object.vehicle_name
+        : "";
+  if (!vehicleName) return null;
+
+  return {
+    vehicleName,
+    nextPickupDateTime:
+      typeof object.nextPickupDateTime === "string"
+        ? object.nextPickupDateTime
+        : typeof object.next_pickup_date_time === "string"
+          ? object.next_pickup_date_time
+          : null,
+  };
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Array<{ vehicleName: string, nextPickupDateTime: string | null }>}
+ */
+function normalizeFleetNextBookings(value) {
+  if (!Array.isArray(value)) return [];
+
+  const rows = [];
+  for (const item of value) {
+    const row = normalizeFleetNextBookingItem(item);
     if (row) rows.push(row);
   }
   return rows;
@@ -151,6 +193,7 @@ export function normalizeDay(day) {
       staffAwayWeighted: 0,
       staffAwayCount: 0,
       staffsAway: [],
+      fleetNextBookings: [],
     };
   }
 
@@ -166,6 +209,9 @@ export function normalizeDay(day) {
     staffAwayCount: readDayNumeric(record, ["staff_away_count", "staffAwayCount"]),
     staffsAway: normalizeStaffsAway(
       record.staffsAway ?? record.staffs_away ?? record.staffsData ?? record.staffs_data,
+    ),
+    fleetNextBookings: normalizeFleetNextBookings(
+      record.fleetNextBookings ?? record.fleet_next_bookings,
     ),
   };
 
