@@ -34,6 +34,10 @@ export type CloudflareStackerData = {
     emptySpaces: StackerSpace[]
     reviewSpaces: StackerSpace[]
   }
+  cache: {
+    isStale: boolean
+    isRefreshing: boolean
+  }
 }
 
 export const STACKER_COUNT = 6
@@ -99,6 +103,7 @@ export function parseCloudflareStackerData(raw: unknown): CloudflareStackerData 
   const model = isRecord(raw.model) ? raw.model : null
   const fleet = isRecord(raw.fleet) ? raw.fleet : null
   const thresholds = isRecord(raw.thresholds) ? raw.thresholds : {}
+  const cache = isRecord(raw.cache) ? raw.cache : {}
 
   return {
     generatedAt: asString(raw.generatedAt),
@@ -131,6 +136,10 @@ export function parseCloudflareStackerData(raw: unknown): CloudflareStackerData 
       occupiedSpaces,
       emptySpaces,
       reviewSpaces,
+    },
+    cache: {
+      isStale: cache.isStale === true,
+      isRefreshing: cache.isRefreshing === true,
     },
   }
 }

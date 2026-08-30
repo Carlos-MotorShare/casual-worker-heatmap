@@ -135,6 +135,21 @@ function uniqueNonAdminRosterRows(rows: RosterRow[] | undefined): RosterRow[] {
   return out
 }
 
+function uniqueRosterUsernames(rows: RosterRow[] | undefined): string[] {
+  if (!rows?.length) return []
+  return [...new Set(rows.map((row) => row.username.trim()).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b),
+  )
+}
+
+function formatTableDateLabel(date: Date) {
+  return date.toLocaleDateString('en-NZ', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+  })
+}
+
 function hashStringToInt(s: string) {
   // Small, stable hash for palette selection.
   let h = 2166136261
@@ -214,6 +229,7 @@ export default function MonthlyCalendar({
   onScheduleRequest,
 }: MonthlyCalendarProps) {
   const isAdmin = currentUser?.admin === true
+  const canRoster = currentUser?.canRoster === true
   const [month, setMonth] = useState<Date>(() => startOfMonth(initialMonth ?? new Date()))
   const [incomingMonth, setIncomingMonth] = useState<Date | null>(null)
   const [transitionDir, setTransitionDir] = useState<1 | -1>(1)
@@ -224,6 +240,7 @@ export default function MonthlyCalendar({
   const [heatmapMetric, setHeatmapMetric] = useState<HeatmapMetric>('carsToWash')
   const [legendOpen, setLegendOpen] = useState(false)
   const [legendEntered, setLegendEntered] = useState(false)
+  const [showRosterTable, setShowRosterTable] = useState(false)
   const dragRef = useRef<{
     startX: number
     startY: number
@@ -347,6 +364,59 @@ export default function MonthlyCalendar({
 
     return out
   }, [staffsAway, currentCells, month])
+
+  const rosterTableSections = useMemo(() => {
+    const tableStart = addDaysLocal(new Date(), 1)
+    let weekendCount = 0
+    let cursor = new Date(tableStart)
+    let tableEnd = new Date(tableStart)
+
+    while (weekendCount < 20) {
+      if (cursor.getDay() === 6) {
+        weekendCount += 1
+        tableEnd = addDaysLocal(cursor, 1)
+      }
+      cursor = addDaysLocal(cursor, 1)
+    }
+
+    const monthEntries: Array<{
+      iso: string
+      date: Date
+      isWeekend: boolean
+      assigned: string[]
+    }> = []
+
+    for (let date = new Date(tableStart); date <= tableEnd; date = addDaysLocal(date, 1)) {
+      const iso = isoDateLocal(date)
+      const rows = rosterRowsByDate?.[iso] ?? []
+      const isWeekend = isWeekendCellDate(date)
+      const isPublicHoliday = !isWeekend && uniqueAdminRosterRows(rows).length > 0
+      if (!isWeekend && !isPublicHoliday) continue
+
+      monthEntries.push({
+        iso,
+        date: new Date(date),
+        isWeekend,
+        assigned: uniqueRosterUsernames(rows),
+      })
+    }
+
+    const sections: typeof monthEntries[] = []
+    for (let i = 0; i < monthEntries.length; i++) {
+      const entry = monthEntries[i]
+      if (!entry) continue
+      if (entry.date.getDay() === 6) {
+        const next = monthEntries[i + 1]
+        if (next && next.isWeekend && next.date.getDay() === 0) {
+          sections.push([entry, next])
+          i += 1
+          continue
+        }
+      }
+      sections.push([entry])
+    }
+    return sections
+  }, [currentCells, rosterRowsByDate])
 
   const runMonthTransition = (delta: number) => {
     if (isAnimating) return
@@ -746,6 +816,72 @@ export default function MonthlyCalendar({
           </div>
         </div>
       ) : null}
+
+      <div className="monthCalRosterTableWrap">
+        <button
+          type="button"
+          className={`monthCalRosterTableToggle${showRosterTable ? ' monthCalRosterTableToggle--active' : ''}`}
+          onClick={() => setShowRosterTable((prev) => !prev)}
+          aria-expanded={showRosterTable}
+          aria-controls="month-calendar-roster-table"
+        >
+          {showRosterTable ? 'Hide table' : 'Show table'}
+        </button>
+
+        {showRosterTable ? (
+          <div
+            id="month-calendar-roster-table"
+            className="monthCalRosterTableCard"
+          >
+            <div className="monthCalRosterTable">
+              <div className="monthCalRosterTableHeader" role="row">
+                <div className="monthCalRosterTableHeaderCell" role="columnheader">Date</div>
+                <div className="monthCalRosterTableHeaderCell" role="columnheader">
+                  <div className="monthCalRosterTableHead">
+                    <span>Assigned</span>
+                    {canRoster ? (
+                      <span className="monthCalRosterTableHint">Tap a day to assign</span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className="monthCalRosterTableGroups">
+                {rosterTableSections.map((section) => (
+                  <div
+                    key={section.map((entry) => entry.iso).join('-')}
+                    className={section.length > 1 ? 'monthCalRosterTableGroup monthCalRosterTableGroup--weekend' : 'monthCalRosterTableGroup'}
+                  >
+                    {section.map((entry) => (
+                      <div
+                        key={entry.iso}
+                        className={canRoster ? 'monthCalRosterTableRow monthCalRosterTableRow--interactive' : 'monthCalRosterTableRow'}
+                        onClick={canRoster ? () => setBottomSheetIso(entry.iso) : undefined}
+                        onKeyDown={canRoster ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            setBottomSheetIso(entry.iso)
+                          }
+                        } : undefined}
+                        tabIndex={canRoster ? 0 : undefined}
+                        role={canRoster ? 'button' : 'row'}
+                        aria-label={canRoster ? `Open roster for ${formatTableDateLabel(entry.date)}` : undefined}
+                      >
+                        <div className="monthCalRosterTableCell">{formatTableDateLabel(entry.date)}</div>
+                        <div className="monthCalRosterTableCell">
+                          {entry.assigned.length > 0
+                            ? `[${entry.assigned.join(', ')}]`
+                            : '[]'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       {/* ── Unified bottom sheet day panel (replaces old expanded panel + weekend modal) ── */}
       {bottomSheetIso

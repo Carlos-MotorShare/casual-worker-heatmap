@@ -1,4 +1,5 @@
 const STACKER_CACHE_TTL_MS = 15 * 60 * 1000;
+let stackerRefreshInFlight = null;
 
 /**
  * @typedef {"occupied" | "likely-empty" | "review"} StackerStatus
@@ -31,6 +32,10 @@ const STACKER_CACHE_TTL_MS = 15 * 60 * 1000;
  *     occupiedSpaces: StackerSpace[],
  *     emptySpaces: StackerSpace[],
  *     reviewSpaces: StackerSpace[],
+ *   },
+ *   cache: {
+ *     isStale: boolean,
+ *     isRefreshing: boolean,
  *   },
  * }} StackerResponse
  */
@@ -136,6 +141,10 @@ export function reconcileStackerResponse(rawResponse) {
         emptySpaces: [],
         reviewSpaces: [],
       },
+      cache: {
+        isStale: false,
+        isRefreshing: false,
+      },
     };
   }
 
@@ -177,6 +186,25 @@ export function reconcileStackerResponse(rawResponse) {
       emptySpaces,
       reviewSpaces,
     },
+    cache: {
+      isStale: false,
+      isRefreshing: false,
+    },
+  };
+}
+
+/**
+ * @param {StackerResponse} response
+ * @param {{ isStale?: boolean, isRefreshing?: boolean }} meta
+ * @returns {StackerResponse}
+ */
+function withCacheMeta(response, meta = {}) {
+  return {
+    ...response,
+    cache: {
+      isStale: Boolean(meta.isStale),
+      isRefreshing: Boolean(meta.isRefreshing),
+    },
   };
 }
 
@@ -201,12 +229,21 @@ async function fetchLatestStackerCacheRow(supabase) {
 }
 
 /**
- * @param {string} data
+ * @param {unknown} data
  * @returns {StackerResponse | null}
  */
 function parseCachedStackerResponse(data) {
   try {
-    return reconcileStackerResponse(JSON.parse(data));
+    if (typeof data === "string") {
+      return reconcileStackerResponse(JSON.parse(data));
+    }
+
+    if (isRecord(data)) {
+      return reconcileStackerResponse(data);
+    }
+
+    console.error("[stacker-data] cached stacker_data had unsupported shape:", typeof data);
+    return null;
   } catch (error) {
     console.error("[stacker-data] failed to parse cached stacker_data:", error);
     return null;
@@ -241,26 +278,8 @@ async function storeStackerCache(supabase, response) {
   }
 }
 
-/**
- * @param {import("@supabase/supabase-js").SupabaseClient} supabase
- * @returns {Promise<StackerResponse>}
- */
-export async function fetchStackerData(supabase) {
+async function fetchFreshStackerData(supabase) {
   const emptyResponse = reconcileStackerResponse(null);
-  const cachedRow = await fetchLatestStackerCacheRow(supabase);
-
-  if (cachedRow) {
-    const ageMs = Date.now() - new Date(cachedRow.created_at).getTime();
-    if (ageMs <= STACKER_CACHE_TTL_MS) {
-      const cached = parseCachedStackerResponse(cachedRow.data);
-      if (cached) {
-        console.log(
-          `[stacker-data] serving cached stacker data age=${Math.round(ageMs / 1000)}s id=${cachedRow.id}`,
-        );
-        return cached;
-      }
-    }
-  }
 
   if (!process.env.CLOUDFLARE_API_URL) {
     console.log("[stacker-data] CLOUDFLARE_API_URL not set, skipping stacker fetch.");
@@ -292,4 +311,50 @@ export async function fetchStackerData(supabase) {
   );
 
   return response;
+}
+
+function refreshStackerDataInBackground(supabase) {
+  if (stackerRefreshInFlight) return stackerRefreshInFlight;
+
+  stackerRefreshInFlight = fetchFreshStackerData(supabase)
+    .catch((error) => {
+      console.error("[stacker-data] background refresh failed:", error);
+      return null;
+    })
+    .finally(() => {
+      stackerRefreshInFlight = null;
+    });
+
+  return stackerRefreshInFlight;
+}
+
+/**
+ * @param {import("@supabase/supabase-js").SupabaseClient} supabase
+ * @returns {Promise<StackerResponse>}
+ */
+export async function fetchStackerData(supabase) {
+  const emptyResponse = reconcileStackerResponse(null);
+  const cachedRow = await fetchLatestStackerCacheRow(supabase);
+
+  if (cachedRow) {
+    const ageMs = Date.now() - new Date(cachedRow.created_at).getTime();
+    const cached = parseCachedStackerResponse(cachedRow.data);
+    if (cached) {
+      if (ageMs <= STACKER_CACHE_TTL_MS) {
+        console.log(
+          `[stacker-data] serving cached stacker data age=${Math.round(ageMs / 1000)}s id=${cachedRow.id}`,
+        );
+        return withCacheMeta(cached, { isStale: false, isRefreshing: false });
+      }
+
+      console.log(
+        `[stacker-data] serving stale cached stacker data age=${Math.round(ageMs / 1000)}s id=${cachedRow.id} while refreshing`,
+      );
+      void refreshStackerDataInBackground(supabase);
+      return withCacheMeta(cached, { isStale: true, isRefreshing: true });
+    }
+  }
+
+  const fresh = await fetchFreshStackerData(supabase);
+  return withCacheMeta(fresh ?? emptyResponse, { isStale: false, isRefreshing: false });
 }

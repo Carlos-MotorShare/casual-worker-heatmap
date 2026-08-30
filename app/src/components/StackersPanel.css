@@ -24,6 +24,25 @@
   gap: 0.75rem;
 }
 
+.stackersRefreshBanner {
+  position: sticky;
+  top: 0.75rem;
+  z-index: 3;
+  width: fit-content;
+  max-width: calc(100% - 1rem);
+  margin: 0 auto 0.9rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, 0.18);
+  border: 1px solid rgba(22, 163, 74, 0.28);
+  color: var(--text-h);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: var(--shadow);
+  animation: stackersRefreshSlideIn 180ms ease;
+}
+
 .stackersGrid {
   display: flex;
   flex-wrap: nowrap;
@@ -38,6 +57,286 @@
   margin-inline: -20px;
   padding-right: 20px;
   padding-bottom: 0.25rem;
+}
+
+.stackerPlanSection {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.stackerPlanCard {
+  padding: 0.9rem 1rem;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+}
+
+.stackerPlanTitle {
+  margin: 0 0 0.7rem;
+  font-size: 0.92rem;
+  letter-spacing: 0;
+}
+
+.stackerPlanList {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.stackerPlanItem {
+  padding-left: 0.2rem;
+}
+
+.stackerPlanLeadRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+}
+
+.stackerPlanLead,
+.stackerPlanMeta,
+.stackerPlanStep,
+.stackerPlanEmpty {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.stackerPlanMeta,
+.stackerPlanStep,
+.stackerPlanEmpty {
+  opacity: 0.78;
+}
+
+.stackerPlanPriority {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.8rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(250, 204, 21, 0.14);
+  border: 1px solid rgba(250, 204, 21, 0.28);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.stackerPlanBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.stackerPlanBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.7rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.stackerPlanBadge--success {
+  background: rgba(22, 163, 74, 0.14);
+  border-color: rgba(22, 163, 74, 0.24);
+}
+
+.stackerPlanBadge--warning {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.24);
+}
+
+.stackerPlanLead + .stackerPlanMeta,
+.stackerPlanMeta + .stackerPlanSteps {
+  margin-top: 0.2rem;
+}
+
+.stackerPlanControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  margin-top: 0.55rem;
+}
+
+.stackerPlanProgress {
+  font-size: 0.76rem;
+  opacity: 0.72;
+}
+
+.stackerPlanComplete {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.8rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, 0.16);
+  border: 1px solid rgba(22, 163, 74, 0.28);
+  color: var(--text-h);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.stackerPlanToggle,
+.stackerPlanDone {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, opacity 140ms ease;
+}
+
+.stackerPlanBack {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: background 140ms ease, border-color 140ms ease, opacity 140ms ease;
+}
+
+.stackerPlanToggle:hover,
+.stackerPlanDone:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.stackerPlanBack:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  opacity: 0.9;
+}
+
+.stackerPlanBack:disabled,
+.stackerPlanDone:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.stackerPlanStepContent {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9.5rem;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.stackerPlanStepActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  width: 9.5rem;
+}
+
+.stackerPlanSteps {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+}
+
+.stackerPlanStepRow {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+  padding: 0.6rem 0.65rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.stackerPlanStepNumber {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.stackerPlanStepFlag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stackerPlanStep--remove {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.stackerPlanStep--target {
+  background: rgba(22, 163, 74, 0.12);
+  border-color: rgba(22, 163, 74, 0.24);
+}
+
+.stackerPlanStep--return {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.stackerPlanStep--hold {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.stackerPlanStepRow--celebrate {
+  position: relative;
+  overflow: hidden;
+}
+
+.stackerPlanStepRow--celebrate::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(circle at 14% 30%, rgba(250, 204, 21, 0.95) 0 0.16rem, transparent 0.18rem),
+    radial-gradient(circle at 28% 72%, rgba(59, 130, 246, 0.9) 0 0.18rem, transparent 0.2rem),
+    radial-gradient(circle at 46% 24%, rgba(34, 197, 94, 0.95) 0 0.17rem, transparent 0.19rem),
+    radial-gradient(circle at 61% 76%, rgba(236, 72, 153, 0.9) 0 0.16rem, transparent 0.18rem),
+    radial-gradient(circle at 78% 35%, rgba(249, 115, 22, 0.92) 0 0.17rem, transparent 0.19rem),
+    radial-gradient(circle at 88% 66%, rgba(168, 85, 247, 0.88) 0 0.16rem, transparent 0.18rem);
+  pointer-events: none;
+  animation: stackerPlanConfetti 850ms ease-out forwards;
 }
 
 .stackersGridInset {
@@ -70,6 +369,10 @@
     padding-right: 0;
   }
 
+  .stackerPlanSection {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .stackersGridInset {
     display: none;
   }
@@ -89,6 +392,66 @@
 [data-theme='light'] .stackerColumn {
   background: rgba(0, 0, 0, 0.03);
   border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='light'] .stackersRefreshBanner {
+  background: rgba(22, 163, 74, 0.12);
+  border-color: rgba(22, 163, 74, 0.2);
+}
+
+[data-theme='light'] .stackerPlanCard {
+  background: rgba(0, 0, 0, 0.025);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='light'] .stackerPlanBadge {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='light'] .stackerPlanPriority {
+  background: rgba(250, 204, 21, 0.18);
+  border-color: rgba(217, 119, 6, 0.18);
+}
+
+[data-theme='light'] .stackerPlanStepRow {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='light'] .stackerPlanToggle,
+[data-theme='light'] .stackerPlanDone {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='light'] .stackerPlanComplete {
+  background: rgba(22, 163, 74, 0.12);
+  border-color: rgba(22, 163, 74, 0.22);
+}
+
+[data-theme='light'] .stackerPlanBack {
+  background: rgba(0, 0, 0, 0.025);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='light'] .stackerPlanToggle:hover,
+[data-theme='light'] .stackerPlanDone:hover {
+  background: rgba(0, 0, 0, 0.07);
+  border-color: rgba(0, 0, 0, 0.14);
+}
+
+[data-theme='light'] .stackerPlanBack:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme='light'] .stackerPlanStepNumber {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme='light'] .stackerPlanStepFlag {
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .stackerColumnHeader {
@@ -303,4 +666,32 @@
   margin: 0;
   font-size: 0.95rem;
   line-height: 1.45;
+}
+
+@keyframes stackersRefreshSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes stackerPlanConfetti {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.85);
+  }
+
+  15% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-18px) scale(1.08);
+  }
 }
