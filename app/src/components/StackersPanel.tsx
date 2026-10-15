@@ -38,6 +38,7 @@ type MoveRecommendation = {
   title: string
   meta: string
   totalMoves: number
+  actionSteps: number
   steps: Array<{
     kind: 'remove' | 'target' | 'return' | 'hold'
     text: string
@@ -48,6 +49,8 @@ type VehicleLocation = {
   stacker: number
   level: number
 }
+
+type IncomingVehicle = Omit<PresentVehicle, 'stacker' | 'level'>
 
 const VEHICLE_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp']
 const MAX_MOVE_RECOMMENDATIONS = 6
@@ -266,6 +269,39 @@ function cloneStackerState(stackerState: Map<number, Map<number, string | null>>
   return new Map(
     Array.from(stackerState.entries()).map(([stacker, levels]) => [stacker, new Map(levels)]),
   )
+}
+
+function collectAvailableSlots(stackerState: Map<number, Map<number, string | null>>) {
+  const slots: Array<{ stacker: number; level: number; levels: Map<number, string | null> }> = []
+
+  for (let stacker = 1; stacker <= STACKER_COUNT; stacker++) {
+    const levels = stackerState.get(stacker)
+    if (!levels) continue
+
+    for (let level = 1; level <= LEVEL_COUNT; level++) {
+      if (!canPlaceOnLevel(levels, level)) break
+      slots.push({ stacker, level, levels })
+    }
+  }
+
+  return slots.sort((a, b) => a.level - b.level || a.stacker - b.stacker)
+}
+
+function scorePlacementSlot(
+  slot: { stacker: number; level: number },
+  stackerState: Map<number, Map<number, string | null>>,
+  incomingVehiclePriority: number,
+): number {
+  const levels = stackerState.get(slot.stacker)
+  if (!levels) return Number.POSITIVE_INFINITY
+
+  let occupiedAbove = 0
+  for (let level = slot.level + 1; level <= LEVEL_COUNT; level++) {
+    if ((levels.get(level) ?? null) !== null) occupiedAbove++
+  }
+
+  const isGroundLevel = slot.level === 1 ? 0 : 1
+  return incomingVehiclePriority * 100 + isGroundLevel * 20 + slot.level * 8 + occupiedAbove * 3 + slot.stacker
 }
 
 function hasLaterPriorityVehicleAboveGround(
@@ -556,6 +592,7 @@ function tryBuildPromotionRecommendation(
         title: `${vehicle.displayName} from S${currentLocation.stacker} L${currentLocation.level} to S${destination.stacker} L${destination.level}`,
         meta: buildRecommendationMeta(totalMoves, vehicle.nextPickupDateTime),
         totalMoves,
+        actionSteps: totalMoves,
         steps,
       },
       nextState: simulation,
@@ -565,12 +602,59 @@ function tryBuildPromotionRecommendation(
   return null
 }
 
+function buildPlacementRecommendations(
+  incomingVehicles: IncomingVehicle[],
+  stackerState: Map<number, Map<number, string | null>>,
+): { recommendations: MoveRecommendation[]; placedVehicles: PresentVehicle[] } | null {
+  if (incomingVehicles.length === 0) {
+    return { recommendations: [], placedVehicles: [] }
+  }
+
+  const availableSlots = collectAvailableSlots(stackerState)
+  if (availableSlots.length < incomingVehicles.length) return null
+
+  const recommendations: MoveRecommendation[] = []
+  const placedVehicles: PresentVehicle[] = []
+  const queue = [...incomingVehicles].sort(compareVehicleUrgency)
+
+  queue.forEach((vehicle, queueIndex) => {
+    const remainingSlots = availableSlots.filter((slot) => (slot.levels.get(slot.level) ?? null) === null)
+    const rankedSlots = remainingSlots.sort(
+      (a, b) =>
+        scorePlacementSlot(a, stackerState, queueIndex) - scorePlacementSlot(b, stackerState, queueIndex),
+    )
+    const slot = rankedSlots[0]
+    if (!slot) return
+    slot.levels.set(slot.level, vehicle.vehicleId)
+    placedVehicles.push({
+      ...vehicle,
+      stacker: slot.stacker,
+      level: slot.level,
+    })
+    recommendations.push({
+      id: `${vehicle.vehicleId}-place-S${slot.stacker}L${slot.level}`,
+      title: `Place ${vehicle.displayName} into S${slot.stacker} L${slot.level}`,
+      meta: buildRecommendationMeta(1, vehicle.nextPickupDateTime),
+      totalMoves: 1,
+      actionSteps: 1,
+      steps: [
+        {
+          kind: 'target',
+          text: `Place ${vehicle.displayName} into S${slot.stacker} L${slot.level}.`,
+        },
+      ],
+    })
+  })
+
+  return { recommendations, placedVehicles }
+}
+
 function buildMoveRecommendations(
   presentVehicles: PresentVehicle[],
+  incomingVehicles: IncomingVehicle[],
   grid: ReturnType<typeof buildStackerGrid>,
 ): MoveRecommendation[] {
   const nowMs = nzWallClockNowMs()
-  const vehiclesById = new Map(presentVehicles.map((vehicle) => [vehicle.vehicleId, vehicle]))
   const stackerState = new Map<number, Map<number, string | null>>()
   for (let stacker = 1; stacker <= STACKER_COUNT; stacker++) {
     const levels = new Map<number, string | null>()
@@ -583,7 +667,13 @@ function buildMoveRecommendations(
     stackerState.set(stacker, levels)
   }
 
-  const priorityVehicles = [...presentVehicles]
+  const placement = buildPlacementRecommendations(incomingVehicles, stackerState)
+  if (!placement) return []
+
+  const allVehicles = [...presentVehicles, ...placement.placedVehicles]
+  const vehiclesById = new Map(allVehicles.map((vehicle) => [vehicle.vehicleId, vehicle]))
+
+  const priorityVehicles = [...allVehicles]
     .filter((vehicle) => isWithinMoveWindow(vehicle.nextPickupMs, nowMs))
     .sort((a, b) => {
       if (a.nextPickupMs === null) return 1
@@ -595,7 +685,7 @@ function buildMoveRecommendations(
     priorityVehicles.map((vehicle, index) => [vehicle.vehicleId, index]),
   )
 
-  const recommendations: MoveRecommendation[] = []
+  const recommendations: MoveRecommendation[] = [...placement.recommendations]
 
   for (let priorityIndex = 0; priorityIndex < priorityVehicles.length; priorityIndex++) {
     if (recommendations.length >= MAX_MOVE_RECOMMENDATIONS) break
@@ -736,6 +826,10 @@ export default function StackersPanel({ data, days = [] }: StackersPanelProps) {
   const updatedLabel = formatUpdatedAt(data?.generatedAt ?? null)
   const [vehicleNames, setVehicleNames] = useState<VehicleNameMap>({})
   const [selectedVehicle, setSelectedVehicle] = useState<DirtyCar | null>(null)
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false)
+  const [draftVehicleIds, setDraftVehicleIds] = useState<string[]>([])
+  const [committedVehicleIds, setCommittedVehicleIds] = useState<string[]>([])
+  const [selectionError, setSelectionError] = useState<string | null>(null)
   const [visibleStepIndexByMove, setVisibleStepIndexByMove] = useState<Record<string, number>>({})
   const [showAllStepsByMove, setShowAllStepsByMove] = useState<Record<string, boolean>>({})
   const [celebratingMoveIds, setCelebratingMoveIds] = useState<Record<string, boolean>>({})
@@ -825,10 +919,81 @@ export default function StackersPanel({ data, days = [] }: StackersPanelProps) {
     return vehicles
   }, [data?.backendView.occupiedSpaces, fleetNextBookings, vehicleNames])
 
-  const moveRecommendations = useMemo(
-    () => buildMoveRecommendations(presentVehicles, grid),
-    [grid, presentVehicles],
+  const presentVehicleIds = useMemo(
+    () => new Set(presentVehicles.map((vehicle) => vehicle.vehicleId)),
+    [presentVehicles],
   )
+
+  const availableFleetVehicles = useMemo(
+    () =>
+      Object.entries(vehicleNames)
+        .filter(([vehicleId]) => !presentVehicleIds.has(vehicleId))
+        .map(([vehicleId, names]) => ({
+          vehicleId,
+          ...names,
+        }))
+        .sort((a, b) => a.displayName.localeCompare(b.displayName)),
+    [presentVehicleIds, vehicleNames],
+  )
+
+  const availableSlotCount = useMemo(() => {
+    const stackerState = new Map<number, Map<number, string | null>>()
+    for (let stacker = 1; stacker <= STACKER_COUNT; stacker++) {
+      const levels = new Map<number, string | null>()
+      for (let level = 1; level <= LEVEL_COUNT; level++) {
+        levels.set(
+          level,
+          grid[stacker][level]?.status === 'occupied' ? (grid[stacker][level]?.vehicleId ?? null) : null,
+        )
+      }
+      stackerState.set(stacker, levels)
+    }
+    return collectAvailableSlots(stackerState).length
+  }, [grid])
+
+  const incomingVehicles = useMemo<IncomingVehicle[]>(
+    () =>
+      committedVehicleIds
+        .map((vehicleId) => {
+          const vehicleEntry = vehicleNames[vehicleId]
+          if (!vehicleEntry || presentVehicleIds.has(vehicleId)) return null
+          const nextBooking = findNextBooking(vehicleEntry.fullName, fleetNextBookings)
+          const nextPickupDateTime = nextBooking?.nextPickupDateTime ?? null
+          const nextPickupMs = nextPickupDateTime
+            ? airtableNzDateTimeWallClockMs(nextPickupDateTime)
+            : null
+
+          return {
+            vehicleId,
+            displayName: vehicleEntry.displayName,
+            fullName: vehicleEntry.fullName,
+            nextPickupDateTime,
+            nextPickupMs: Number.isFinite(nextPickupMs ?? NaN) ? nextPickupMs : null,
+          }
+        })
+        .filter((vehicle): vehicle is IncomingVehicle => vehicle !== null),
+    [committedVehicleIds, fleetNextBookings, presentVehicleIds, vehicleNames],
+  )
+
+  const moveRecommendations = useMemo(
+    () => buildMoveRecommendations(presentVehicles, incomingVehicles, grid),
+    [grid, incomingVehicles, presentVehicles],
+  )
+
+  useEffect(() => {
+    setDraftVehicleIds((current) => current.filter((vehicleId) => !presentVehicleIds.has(vehicleId)))
+    setCommittedVehicleIds((current) => current.filter((vehicleId) => !presentVehicleIds.has(vehicleId)))
+  }, [presentVehicleIds])
+
+  useEffect(() => {
+    if (draftVehicleIds.length <= availableSlotCount) {
+      setSelectionError(null)
+      return
+    }
+
+    const remaining = availableSlotCount === 1 ? '1 legal space remains' : `${availableSlotCount} legal spaces remain`
+    setSelectionError(`You can only add ${availableSlotCount} vehicle${availableSlotCount === 1 ? '' : 's'} right now. ${remaining}.`)
+  }, [availableSlotCount, draftVehicleIds.length])
 
   useEffect(() => {
     setVisibleStepIndexByMove((current) =>
@@ -914,6 +1079,91 @@ export default function StackersPanel({ data, days = [] }: StackersPanelProps) {
           ) : null}
         </div>
       </div>
+
+      <section className="stackerSelectorCard" aria-label="Add vehicles to move plan">
+        <button
+          type="button"
+          className="stackerSelectorTrigger"
+          aria-expanded={isSelectorOpen}
+          onClick={() => {
+            setIsSelectorOpen((current) => !current)
+            setDraftVehicleIds(committedVehicleIds)
+          }}
+        >
+          <span>Add vehicles</span>
+          <span className="stackerSelectorTriggerMeta">
+            {committedVehicleIds.length > 0
+              ? `${committedVehicleIds.length} selected`
+              : `${availableSlotCount} slot${availableSlotCount === 1 ? '' : 's'} open`}
+          </span>
+        </button>
+
+        {isSelectorOpen ? (
+          <>
+            <div className="stackerSelectorHeader">
+              <div>
+                <p className="stackerPlanMeta">
+                  Choose off-stacker vehicles to fit into the best legal stacker spaces.
+                </p>
+              </div>
+              <span className="stackerPlanBadge stackerPlanBadge--info">
+                {availableSlotCount} slot{availableSlotCount === 1 ? '' : 's'} open
+              </span>
+            </div>
+
+            <label className="stackerSelectorLabel" htmlFor="stacker-vehicle-select">
+              Vehicles not currently on a stacker
+            </label>
+            <select
+              id="stacker-vehicle-select"
+              className="stackerSelectorInput"
+              multiple
+              size={Math.min(Math.max(availableFleetVehicles.length, 5), 8)}
+              value={draftVehicleIds}
+              onChange={(event) => {
+                const next = Array.from(event.currentTarget.selectedOptions, (option) => option.value)
+                setDraftVehicleIds(next)
+              }}
+              aria-describedby="stacker-selector-help"
+            >
+              {availableFleetVehicles.map((vehicle) => (
+                <option key={vehicle.vehicleId} value={vehicle.vehicleId}>
+                  {vehicle.displayName}
+                </option>
+              ))}
+            </select>
+            <p id="stacker-selector-help" className="stackerSelectorHelp">
+              Tap to select. On desktop, hold Command on Mac or Ctrl on Windows to choose more than one.
+            </p>
+            {selectionError ? <p className="stackerSelectorError">{selectionError}</p> : null}
+            <div className="stackerSelectorActions">
+              <button
+                type="button"
+                className="stackerPlanBack"
+                onClick={() => {
+                  setDraftVehicleIds(committedVehicleIds)
+                  setSelectionError(null)
+                  setIsSelectorOpen(false)
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="stackerPlanDone"
+                onClick={() => {
+                  if (draftVehicleIds.length > availableSlotCount) return
+                  setCommittedVehicleIds(draftVehicleIds)
+                  setIsSelectorOpen(false)
+                }}
+                disabled={draftVehicleIds.length > availableSlotCount}
+              >
+                Done
+              </button>
+            </div>
+          </>
+        ) : null}
+      </section>
 
       <div className="stackersGrid" role="list" aria-label="Car stackers">
         <div className="stackersGridInset" aria-hidden="true" />
@@ -1003,100 +1253,131 @@ export default function StackersPanel({ data, days = [] }: StackersPanelProps) {
 
                     return (
                       <>
-                  <div className="stackerPlanLeadRow">
-                    <p className="stackerPlanLead">
-                      <strong>{recommendation.title}</strong>
-                    </p>
-                    <span className="stackerPlanPriority">
-                      Move {recommendationIndex + 1}
-                    </span>
-                  </div>
-                  <p className="stackerPlanMeta">{recommendation.meta}</p>
-                  <div className="stackerPlanControls">
-                    {isComplete ? (
-                      <span className="stackerPlanComplete">Complete</span>
-                    ) : (
-                      <span className="stackerPlanProgress">
-                        Step {Math.min(currentStepIndex + 1, recommendation.steps.length)} of {recommendation.steps.length}
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      className="stackerPlanToggle"
-                      onClick={() =>
-                        setShowAllStepsByMove((current) => ({
-                          ...current,
-                          [recommendation.id]: !current[recommendation.id],
-                        }))
-                      }
-                    >
-                      {showAllStepsByMove[recommendation.id] ? 'Step view' : 'Show all'}
-                    </button>
-                  </div>
-                  <div className="stackerPlanSteps" aria-label={`Steps for ${recommendation.title}`}>
-                    {visibleSteps.map(({ step, index }) => {
-                      const isStepView = !showAllStepsByMove[recommendation.id]
-                      const canGoBack = currentStepIndex > 0
-                      return (
-                        <div
-                          key={index}
-                          className={[
-                            'stackerPlanStepRow',
-                            stepToneClass(step.kind),
-                            celebratingMoveIds[recommendation.id] && isStepView
-                              ? 'stackerPlanStepRow--celebrate'
-                              : '',
-                          ]
-                            .filter(Boolean)
-                            .join(' ')}
-                        >
-                          <span className={step.kind === 'hold' ? 'stackerPlanStepFlag' : 'stackerPlanStepNumber'}>
-                            {step.kind === 'hold' ? 'Note' : countActionSteps(recommendation.steps.slice(0, index + 1))}
-                          </span>
-                          <div className="stackerPlanStepContent">
-                            <p className="stackerPlanStep">{step.text}</p>
-                            {isStepView ? (
-                              <div className="stackerPlanStepActions">
-                                <button
-                                  type="button"
-                                  className="stackerPlanBack"
-                                  onClick={() =>
-                                    setVisibleStepIndexByMove((current) => ({
-                                      ...current,
-                                      [recommendation.id]: Math.max(
-                                        (current[recommendation.id] ?? 0) - 1,
-                                        0,
-                                      ),
-                                    }))
-                                  }
-                                  disabled={!canGoBack}
-                                >
-                                  Back
-                                </button>
-                                <button
-                                  type="button"
-                                  className="stackerPlanDone"
-                                  onClick={() => {
-                                    setVisibleStepIndexByMove((current) => ({
-                                      ...current,
-                                      [recommendation.id]: Math.min(
-                                        (current[recommendation.id] ?? 0) + 1,
-                                        recommendation.steps.length,
-                                      ),
-                                    }))
-                                    triggerStepCelebration(recommendation.id)
-                                  }}
-                                  disabled={false}
-                                >
-                                  Done
-                                </button>
-                              </div>
-                            ) : null}
+                        <div className="stackerPlanLeadRow">
+                          <div className="stackerPlanLeadBlock">
+                            <p className="stackerPlanLead">
+                              <strong>{recommendation.title}</strong>
+                            </p>
+                            <p className="stackerPlanMeta">{recommendation.meta}</p>
                           </div>
+                          <span className="stackerPlanPriority">
+                            Move {recommendationIndex + 1}
+                          </span>
                         </div>
-                      )
-                    })}
-                  </div>
+                        <div
+                          className="stackerPlanBadges"
+                          aria-label={`Summary for ${recommendation.title}`}
+                        >
+                          <span className="stackerPlanBadge stackerPlanBadge--info">
+                            {recommendation.actionSteps} action
+                            {recommendation.actionSteps === 1 ? '' : 's'}
+                          </span>
+                          {recommendation.steps.some((step) => step.kind === 'hold') ? (
+                            <span className="stackerPlanBadge">Includes note</span>
+                          ) : null}
+                          {isComplete ? (
+                            <span className="stackerPlanBadge stackerPlanBadge--success">Ready</span>
+                          ) : (
+                            <span className="stackerPlanBadge">
+                              Current step {Math.min(currentStepIndex + 1, recommendation.steps.length)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="stackerPlanControls">
+                          {isComplete ? (
+                            <span className="stackerPlanComplete">Complete</span>
+                          ) : (
+                            <span className="stackerPlanProgress">
+                              Step {Math.min(currentStepIndex + 1, recommendation.steps.length)} of{' '}
+                              {recommendation.steps.length}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            className="stackerPlanToggle"
+                            aria-pressed={showAllStepsByMove[recommendation.id] === true}
+                            onClick={() =>
+                              setShowAllStepsByMove((current) => ({
+                                ...current,
+                                [recommendation.id]: !current[recommendation.id],
+                              }))
+                            }
+                          >
+                            {showAllStepsByMove[recommendation.id] ? 'Focus mode' : 'Show details'}
+                          </button>
+                        </div>
+                        <div className="stackerPlanSteps" aria-label={`Steps for ${recommendation.title}`}>
+                          {visibleSteps.map(({ step, index }) => {
+                            const isStepView = !showAllStepsByMove[recommendation.id]
+                            const canGoBack = currentStepIndex > 0
+                            return (
+                              <div
+                                key={index}
+                                className={[
+                                  'stackerPlanStepRow',
+                                  stepToneClass(step.kind),
+                                  celebratingMoveIds[recommendation.id] && isStepView
+                                    ? 'stackerPlanStepRow--celebrate'
+                                    : '',
+                                ]
+                                  .filter(Boolean)
+                                  .join(' ')}
+                              >
+                                <span
+                                  className={
+                                    step.kind === 'hold'
+                                      ? 'stackerPlanStepFlag'
+                                      : 'stackerPlanStepNumber'
+                                  }
+                                >
+                                  {step.kind === 'hold'
+                                    ? 'Note'
+                                    : countActionSteps(recommendation.steps.slice(0, index + 1))}
+                                </span>
+                                <div className="stackerPlanStepContent">
+                                  <p className="stackerPlanStep">{step.text}</p>
+                                  {isStepView ? (
+                                    <div className="stackerPlanStepActions">
+                                      <button
+                                        type="button"
+                                        className="stackerPlanBack"
+                                        onClick={() =>
+                                          setVisibleStepIndexByMove((current) => ({
+                                            ...current,
+                                            [recommendation.id]: Math.max(
+                                              (current[recommendation.id] ?? 0) - 1,
+                                              0,
+                                            ),
+                                          }))
+                                        }
+                                        disabled={!canGoBack}
+                                      >
+                                        Back
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="stackerPlanDone"
+                                        onClick={() => {
+                                          setVisibleStepIndexByMove((current) => ({
+                                            ...current,
+                                            [recommendation.id]: Math.min(
+                                              (current[recommendation.id] ?? 0) + 1,
+                                              recommendation.steps.length,
+                                            ),
+                                          }))
+                                          triggerStepCelebration(recommendation.id)
+                                        }}
+                                        disabled={false}
+                                      >
+                                        Mark done
+                                      </button>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </>
                     )
                   })()}

@@ -59,6 +59,117 @@
   padding-bottom: 0.25rem;
 }
 
+.stackerSelectorCard {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.stackerSelectorTrigger {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent), transparent 60%);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--accent), transparent 88%);
+  box-shadow: var(--shadow);
+  color: var(--text-h);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+.stackerSelectorTrigger:hover {
+  background: color-mix(in srgb, var(--accent), transparent 82%);
+  border-color: color-mix(in srgb, var(--accent), transparent 42%);
+  transform: translateY(-1px);
+}
+
+.stackerSelectorTrigger:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent), var(--white) 18%);
+  outline-offset: 2px;
+}
+
+.stackerSelectorTriggerMeta {
+  font-size: 0.76rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.stackerSelectorCard[aria-label='Add vehicles to move plan'] > :not(.stackerSelectorTrigger) {
+  padding: 0 1rem;
+}
+
+.stackerSelectorCard[aria-label='Add vehicles to move plan']:has(.stackerSelectorHeader) {
+  padding: 1rem 0 1rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--bg-800), transparent 20%);
+  border: 1px solid color-mix(in srgb, var(--border), transparent 28%);
+  box-shadow: var(--shadow);
+}
+
+.stackerSelectorHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.stackerSelectorLabel,
+.stackerSelectorHelp,
+.stackerSelectorError {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.stackerSelectorLabel {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.stackerSelectorHelp {
+  opacity: 0.72;
+}
+
+.stackerSelectorError {
+  color: #fca5a5;
+  font-weight: 600;
+}
+
+.stackerSelectorInput {
+  min-height: 9.5rem;
+  padding: 0.7rem 0.75rem;
+  border-radius: 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 10%);
+  background: color-mix(in srgb, var(--bg), var(--white) 6%);
+  color: var(--text-h);
+  font: inherit;
+}
+
+.stackerSelectorInput:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent), var(--white) 18%);
+  outline-offset: 2px;
+}
+
+.stackerSelectorActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
 .stackerPlanSection {
   display: grid;
   grid-template-columns: 1fr;
@@ -67,36 +178,41 @@
 }
 
 .stackerPlanCard {
-  padding: 0.9rem 1rem;
-  border-radius: 0.9rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--bg-800), transparent 20%);
+  border: 1px solid color-mix(in srgb, var(--border), transparent 28%);
+  box-shadow: var(--shadow);
   text-align: left;
 }
 
 .stackerPlanTitle {
-  margin: 0 0 0.7rem;
-  font-size: 0.92rem;
-  letter-spacing: 0;
+  margin: 0 0 0.8rem;
+  font-size: 0.98rem;
+  letter-spacing: -0.01em;
 }
 
 .stackerPlanList {
   margin: 0;
-  padding-left: 1rem;
+  padding: 0;
+  list-style: none;
   display: grid;
-  gap: 0.8rem;
-}
-
-.stackerPlanItem {
-  padding-left: 0.2rem;
+  gap: 0.75rem;
 }
 
 .stackerPlanLeadRow {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 0.55rem;
+  gap: 0.75rem;
+}
+
+.stackerPlanLeadBlock {
+  display: grid;
+  gap: 0.22rem;
+  min-width: 0;
+  flex: 1 1 14rem;
 }
 
 .stackerPlanLead,
@@ -117,11 +233,12 @@
 .stackerPlanPriority {
   display: inline-flex;
   align-items: center;
-  min-height: 1.8rem;
-  padding: 0.15rem 0.55rem;
+  min-height: 1.85rem;
+  padding: 0.2rem 0.62rem;
   border-radius: 999px;
-  background: rgba(250, 204, 21, 0.14);
-  border: 1px solid rgba(250, 204, 21, 0.28);
+  background: color-mix(in srgb, var(--highlight-amber), transparent 86%);
+  border: 1px solid color-mix(in srgb, var(--highlight-amber), transparent 72%);
+  color: var(--text-h);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -139,13 +256,19 @@
   display: inline-flex;
   align-items: center;
   min-height: 1.7rem;
-  padding: 0.1rem 0.5rem;
+  padding: 0.1rem 0.55rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--bg), var(--white) 8%);
+  border: 1px solid color-mix(in srgb, var(--border), transparent 16%);
   font-size: 0.72rem;
   font-weight: 600;
   line-height: 1;
+  color: color-mix(in srgb, var(--text-h), var(--text) 30%);
+}
+
+.stackerPlanBadge--info {
+  background: color-mix(in srgb, var(--accent), transparent 86%);
+  border-color: color-mix(in srgb, var(--accent), transparent 70%);
 }
 
 .stackerPlanBadge--success {
@@ -168,13 +291,15 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.55rem;
-  margin-top: 0.55rem;
+  gap: 0.75rem;
+  margin-top: 0.7rem;
+  padding-top: 0.2rem;
 }
 
 .stackerPlanProgress {
   font-size: 0.76rem;
   opacity: 0.72;
+  color: var(--text);
 }
 
 .stackerPlanComplete {
@@ -191,75 +316,134 @@
   line-height: 1;
 }
 
-.stackerPlanToggle,
 .stackerPlanDone {
   appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.08);
-  color: inherit;
+  border: 1px solid color-mix(in srgb, var(--accent), transparent 55%);
+  background: color-mix(in srgb, var(--accent), transparent 18%);
+  color: var(--white);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  min-height: 2.2rem;
+  padding: 0.55rem 0.9rem;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease,
+    box-shadow 140ms ease;
+  box-shadow: 0 10px 22px -16px color-mix(in srgb, var(--accent), transparent 10%);
+}
+
+.stackerPlanToggle {
+  appearance: none;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--text-h);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  min-height: 1.85rem;
+  padding: 0.35rem 0.68rem;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.stackerPlanBack {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 18%);
+  background: transparent;
+  color: var(--text-h);
   border-radius: 999px;
   font: inherit;
   font-size: 0.76rem;
   font-weight: 600;
   line-height: 1;
-  padding: 0.45rem 0.75rem;
+  min-height: 2.2rem;
+  padding: 0.55rem 0.9rem;
   cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease, opacity 140ms ease;
+  opacity: 0.86;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
 }
 
-.stackerPlanBack {
-  appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-  color: inherit;
-  border-radius: 999px;
-  font: inherit;
-  font-size: 0.76rem;
-  font-weight: 500;
-  line-height: 1;
-  padding: 0.45rem 0.75rem;
-  cursor: pointer;
-  opacity: 0.72;
-  transition: background 140ms ease, border-color 140ms ease, opacity 140ms ease;
-}
-
-.stackerPlanToggle:hover,
 .stackerPlanDone:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: color-mix(in srgb, var(--accent), transparent 8%);
+  border-color: color-mix(in srgb, var(--accent), transparent 42%);
+  transform: translateY(-1px);
+}
+
+.stackerPlanToggle:hover {
+  background: color-mix(in srgb, var(--accent), transparent 88%);
+  border-color: color-mix(in srgb, var(--accent), transparent 48%);
+  transform: translateY(-1px);
+}
+
+.stackerPlanToggle[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--accent), transparent 80%);
+  border-color: color-mix(in srgb, var(--accent), transparent 28%);
+  color: var(--white);
+}
+
+.stackerPlanToggle[aria-pressed='true']:hover {
+  background: color-mix(in srgb, var(--accent), transparent 72%);
 }
 
 .stackerPlanBack:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.12);
-  opacity: 0.9;
+  background: color-mix(in srgb, var(--white), transparent 92%);
+  border-color: color-mix(in srgb, var(--border), transparent 6%);
+  opacity: 1;
+  transform: translateY(-1px);
 }
 
 .stackerPlanBack:disabled,
-.stackerPlanDone:disabled {
+.stackerPlanDone:disabled,
+.stackerPlanToggle:disabled {
   opacity: 0.5;
   cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+.stackerPlanToggle:focus-visible,
+.stackerPlanDone:focus-visible,
+.stackerPlanBack:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent), var(--white) 18%);
+  outline-offset: 2px;
 }
 
 .stackerPlanStepContent {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 9.5rem;
-  align-items: center;
-  gap: 0.55rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.75rem;
 }
 
 .stackerPlanStepActions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.45rem;
-  width: 9.5rem;
+  gap: 0.5rem;
 }
 
 .stackerPlanSteps {
   display: grid;
-  gap: 0.55rem;
-  margin-top: 0.75rem;
+  gap: 0.6rem;
+  margin-top: 0.55rem;
 }
 
 .stackerPlanStepRow {
@@ -267,10 +451,10 @@
   grid-template-columns: 1.75rem minmax(0, 1fr);
   gap: 0.55rem;
   align-items: start;
-  padding: 0.6rem 0.65rem;
-  border-radius: 0.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  padding: 0.72rem 0.78rem;
+  border-radius: 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 18%);
+  background: color-mix(in srgb, var(--bg), var(--white) 5%);
 }
 
 .stackerPlanStepNumber {
@@ -292,7 +476,7 @@
   height: 1.75rem;
   padding: 0 0.35rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--bg), var(--white) 12%);
   font-size: 0.62rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -317,6 +501,46 @@
 .stackerPlanStep--hold {
   background: rgba(239, 68, 68, 0.1);
   border-color: rgba(239, 68, 68, 0.2);
+}
+
+.stackerPlanItem {
+  padding: 0.85rem 0.9rem 0.95rem;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in srgb, var(--border), transparent 18%);
+  background: color-mix(in srgb, var(--bg-900), transparent 12%);
+}
+
+.stackerPlanEmpty {
+  padding: 0.15rem 0;
+}
+
+@media (max-width: 720px) {
+  .stackerPlanCard {
+    padding: 0.9rem;
+  }
+
+  .stackerPlanItem {
+    padding: 0.8rem;
+  }
+
+  .stackerPlanStepContent {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stackerPlanStepActions {
+    justify-content: stretch;
+  }
+
+  .stackerPlanBack,
+  .stackerPlanDone,
+  .stackerPlanToggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .stackerPlanControls {
+    align-items: stretch;
+  }
 }
 
 .stackerPlanStepRow--celebrate {
@@ -404,6 +628,16 @@
   border-color: rgba(0, 0, 0, 0.08);
 }
 
+[data-theme='light'] .stackerSelectorCard {
+  background: rgba(0, 0, 0, 0.025);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='light'] .stackerSelectorTrigger {
+  background: color-mix(in srgb, var(--accent), white 88%);
+  border-color: color-mix(in srgb, var(--accent), transparent 48%);
+}
+
 [data-theme='light'] .stackerPlanBadge {
   background: rgba(0, 0, 0, 0.03);
   border-color: rgba(0, 0, 0, 0.08);
@@ -421,8 +655,12 @@
 
 [data-theme='light'] .stackerPlanToggle,
 [data-theme='light'] .stackerPlanDone {
-  background: rgba(0, 0, 0, 0.04);
-  border-color: rgba(0, 0, 0, 0.1);
+  border-color: var(--accent-border);
+}
+
+[data-theme='light'] .stackerPlanToggle {
+  background: var(--accent-bg);
+  color: #0f172a;
 }
 
 [data-theme='light'] .stackerPlanComplete {
@@ -437,13 +675,26 @@
 
 [data-theme='light'] .stackerPlanToggle:hover,
 [data-theme='light'] .stackerPlanDone:hover {
-  background: rgba(0, 0, 0, 0.07);
-  border-color: rgba(0, 0, 0, 0.14);
+  border-color: color-mix(in srgb, var(--accent), transparent 42%);
+}
+
+[data-theme='light'] .stackerPlanToggle:hover {
+  background: color-mix(in srgb, var(--accent), white 86%);
+}
+
+[data-theme='light'] .stackerPlanToggle[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--accent), white 68%);
+  border-color: color-mix(in srgb, var(--accent), transparent 18%);
 }
 
 [data-theme='light'] .stackerPlanBack:hover {
   background: rgba(0, 0, 0, 0.05);
   border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme='light'] .stackerSelectorInput {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.1);
 }
 
 [data-theme='light'] .stackerPlanStepNumber {

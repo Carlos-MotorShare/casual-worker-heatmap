@@ -221,16 +221,12 @@
 }
 
 .monthCalRosterTable {
-  display: grid;
-  gap: 10px;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
-.monthCalRosterTableHeader {
-  display: grid;
-  grid-template-columns: minmax(156px, 34%) minmax(0, 1fr);
-}
-
-.monthCalRosterTableHeaderCell {
+.monthCalRosterTable thead th {
   text-align: left;
   font-size: 11px;
   text-transform: uppercase;
@@ -253,22 +249,7 @@
   color: color-mix(in srgb, var(--accent), var(--text) 42%);
 }
 
-.monthCalRosterTableGroups {
-  display: grid;
-  gap: 24px;
-}
-
-.monthCalRosterTableGroup {
-  display: grid;
-  gap: 0;
-}
-
-.monthCalRosterTableRow {
-  display: grid;
-  grid-template-columns: minmax(156px, 34%) minmax(0, 1fr);
-}
-
-.monthCalRosterTableCell {
+.monthCalRosterTableGroup td {
   padding: 12px 14px;
   font-size: 13px;
   color: var(--text);
@@ -277,39 +258,38 @@
   vertical-align: top;
 }
 
-.monthCalRosterTableGroup .monthCalRosterTableRow:first-child .monthCalRosterTableCell {
-  border-top: none;
-}
-
-.monthCalRosterTableGroup .monthCalRosterTableRow:first-child .monthCalRosterTableCell:first-child {
+.monthCalRosterTableGroup tr:first-child td:first-child {
   border-top-left-radius: 12px;
 }
 
-.monthCalRosterTableGroup .monthCalRosterTableRow:first-child .monthCalRosterTableCell:last-child {
+.monthCalRosterTableGroup tr:first-child td:last-child {
   border-top-right-radius: 12px;
 }
 
-.monthCalRosterTableGroup .monthCalRosterTableRow:last-child .monthCalRosterTableCell:first-child {
+.monthCalRosterTableGroup tr:last-child td:first-child {
   border-bottom-left-radius: 12px;
 }
 
-.monthCalRosterTableGroup .monthCalRosterTableRow:last-child .monthCalRosterTableCell:last-child {
+.monthCalRosterTableGroup tr:last-child td:last-child {
   border-bottom-right-radius: 12px;
 }
 
-.monthCalRosterTableGroup--weekend .monthCalRosterTableRow + .monthCalRosterTableRow .monthCalRosterTableCell {
-  border-top: none;
+.monthCalRosterTableGroup + .monthCalRosterTableGroup tr:first-child td {
+  border-top-width: 14px;
+  border-top-color: transparent;
 }
 
 .monthCalRosterTableRow--interactive {
   cursor: pointer;
 }
 
-.monthCalRosterTableRow--interactive .monthCalRosterTableCell {
-  transition: background 140ms ease;
+.monthCalRosterTableRow--interactive td {
+  transition:
+    background 140ms ease,
+    transform 140ms ease;
 }
 
-.monthCalRosterTableRow--interactive:hover .monthCalRosterTableCell {
+.monthCalRosterTableRow--interactive:hover td {
   background: color-mix(in srgb, var(--accent), var(--white) 90%);
 }
 
@@ -318,17 +298,19 @@
   outline-offset: 2px;
 }
 
-.monthCalRosterTableRow--interactive:focus-visible .monthCalRosterTableCell,
-.monthCalRosterTableRow--interactive:active .monthCalRosterTableCell {
+.monthCalRosterTableRow--interactive:focus-visible td,
+.monthCalRosterTableRow--interactive:active td {
   background: color-mix(in srgb, var(--accent), var(--white) 87%);
 }
 
-.monthCalRosterTableCell:first-child {
+.monthCalRosterTable tbody td:first-child {
+  width: 34%;
+  min-width: 156px;
   font-weight: 650;
   color: var(--text-h);
 }
 
-.monthCalRosterTableCell:last-child {
+.monthCalRosterTable tbody td:last-child {
   font-family:
     ui-monospace,
     SFMono-Regular,
@@ -348,15 +330,15 @@
     padding: 8px;
   }
 
-  .monthCalRosterTableHeader,
-  .monthCalRosterTableRow {
-    grid-template-columns: minmax(132px, 44%) minmax(0, 1fr);
-  }
-
-  .monthCalRosterTableHeaderCell,
-  .monthCalRosterTableCell {
+  .monthCalRosterTable thead th,
+  .monthCalRosterTableGroup td {
     padding-left: 10px;
     padding-right: 10px;
+  }
+
+  .monthCalRosterTable tbody td:first-child {
+    width: 44%;
+    min-width: 132px;
   }
 }
 
