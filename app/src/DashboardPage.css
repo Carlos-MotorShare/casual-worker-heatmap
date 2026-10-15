@@ -11,8 +11,8 @@
 .airtableCrop iframe {
   display: block;
   width: 100%;
-  height: calc(100vh + 60px);
-  height: calc(100dvh + 60px);
+  height: calc(100vh + 60px + 30px);
+  height: calc(100dvh + 60px + 30px);
   margin-top: -60px;
   border: 0;
 }
