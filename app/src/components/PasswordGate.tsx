@@ -114,7 +114,7 @@ export default function PasswordGate({ children }: PasswordGateProps) {
           Enter the password to access the roster.
         </p>
 
-        <form onSubmit={onSubmit} style={{ marginTop: 14 }}>
+        <form onSubmit={onSubmit} noValidate style={{ marginTop: 14 }}>
           <label
             htmlFor="password"
             style={{

@@ -1,0 +1,19 @@
+.airtableCrop {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  border: 1px solid #ccc;
+  background: #fff;
+}
+
+.airtableCrop iframe {
+  display: block;
+  width: 100%;
+  height: calc(100vh + 60px);
+  height: calc(100dvh + 60px);
+  margin-top: -60px;
+  border: 0;
+}
