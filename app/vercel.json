@@ -7,6 +7,14 @@
     {
       "source": "/dashboard/",
       "destination": "/index.html"
+    },
+    {
+      "source": "/vehicle/570s",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/vehicle/570s/",
+      "destination": "/index.html"
     }
   ]
 }
