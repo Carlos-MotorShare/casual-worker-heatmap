@@ -9,11 +9,7 @@
       "destination": "/index.html"
     },
     {
-      "source": "/vehicle/570s",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/vehicle/570s/",
+      "source": "/vehicle/:path*",
       "destination": "/index.html"
     }
   ]

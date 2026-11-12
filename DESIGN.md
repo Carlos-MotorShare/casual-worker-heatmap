@@ -8,6 +8,13 @@ colors:
   accent: "#167ee8"
   caution: "#fea613"
   success: "#16a34a"
+  ownerInk: "#07101b"
+  ownerBlue: "#004994"
+  ownerBlueBright: "#1469bd"
+  ownerCanvas: "#f3f6f9"
+  ownerPaper: "#ffffff"
+  ownerSlate: "#5d6976"
+  ownerLine: "#d8e0e8"
 typography:
   body:
     fontFamily: "system-ui, 'Segoe UI', Roboto, sans-serif"
@@ -41,9 +48,13 @@ This product should feel like an operational dashboard used in a dim dispatch ro
 
 The visual signature is the contrast between deep navy structural surfaces and brighter utility accents used only where action is needed. Most information should sit quietly until the user asks for more detail.
 
+Owner-facing `/vehicle/*` calendar routes are a deliberate brand-surface variant. They use a light canvas, a dark MotorShare masthead, and restrained blue framing around the embedded booking calendar while leaving the internal staffing app unchanged.
+
 ## Colors
 
 Dark navy and softened blue panels carry the main layout. Bright blue is reserved for active controls and current-state emphasis. Amber marks caution, and green marks completion. Light mode keeps the same hierarchy rather than becoming a separate personality.
+
+The owner-calendar runtime tokens live under `.managedVehicleRoute` in `app/src/ManagedVehiclePage.css`; the `owner*` values above mirror that route-scoped source of truth.
 
 ## Typography
 
@@ -52,6 +63,8 @@ System sans remains the right fit for this app because the surface is operationa
 ## Layout
 
 Cards should read as compact command surfaces rather than long documents. Default views should reveal the next action first, then let the user expand into the full plan. Dense information should be grouped into short clusters: summary, current step, then optional detail.
+
+Vehicle-owner pages use one shared shell for every `/vehicle/*` endpoint: masthead, compact vehicle summary, a viewport-aware calendar stage, assistance details, and footer. Vehicle name and embed URL are route data, not screen-local layout variants.
 
 ## Elevation & Depth
 
