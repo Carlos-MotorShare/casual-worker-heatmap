@@ -7,7 +7,6 @@ const MOTORSHARE_LOGO_URL =
 export type ManagedVehiclePageProps = {
   vehicleName: string
   vehicleDescription?: string
-  registration?: string
   location?: string
   calendarUrl?: string
 }
@@ -129,7 +128,6 @@ export default function ManagedVehiclePage({
   vehicleName,
   vehicleDescription =
     'View confirmed and reserved booking periods for this jointly owned vehicle.',
-  registration = 'To be confirmed',
   location = 'Auckland',
   calendarUrl,
 }: ManagedVehiclePageProps) {
@@ -181,14 +179,6 @@ export default function ManagedVehiclePage({
               <span className="managedVehiclePage__summaryLabel">Vehicle</span>
               <span className="managedVehiclePage__summaryValue">
                 {vehicleName}
-              </span>
-            </div>
-            <div>
-              <span className="managedVehiclePage__summaryLabel">
-                Registration
-              </span>
-              <span className="managedVehiclePage__summaryValue">
-                {registration}
               </span>
             </div>
             <div>

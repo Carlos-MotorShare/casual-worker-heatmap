@@ -240,7 +240,7 @@
 
 .managedVehiclePage__summary {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) repeat(2, minmax(150px, 0.45fr));
+  grid-template-columns: minmax(0, 1.25fr) minmax(180px, 0.55fr);
   gap: 1px;
   overflow: hidden;
   margin-bottom: 22px;
@@ -493,10 +493,6 @@
     grid-template-columns: 1fr 1fr;
   }
 
-  .managedVehiclePage__summary > div:first-child {
-    grid-column: 1 / -1;
-  }
-
   .managedVehiclePage__footerInner {
     grid-template-columns: 1fr;
   }
@@ -532,10 +528,6 @@
 
   .managedVehiclePage__summary {
     grid-template-columns: 1fr;
-  }
-
-  .managedVehiclePage__summary > div:first-child {
-    grid-column: auto;
   }
 
   .managedVehiclePage__summaryValue {
