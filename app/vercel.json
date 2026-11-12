@@ -9,6 +9,14 @@
       "destination": "/index.html"
     },
     {
+      "source": "/damages",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/damages/",
+      "destination": "/index.html"
+    },
+    {
       "source": "/vehicle/:path*",
       "destination": "/index.html"
     }
